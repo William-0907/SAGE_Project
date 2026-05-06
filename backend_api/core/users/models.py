@@ -1,16 +1,23 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-class User(models.Model):
-    name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
+class User(AbstractUser):
+    # AbstractUser already provides: username, email, password, first_name, last_name, date_joined
+    
+    # Role-Based Access Control (RBAC) - Required by SAGE FR-01
+    is_student = models.BooleanField(default=True)
+    is_educator = models.BooleanField(default=False)
+    
+    # Gamification Stats
+    points = models.IntegerField(default=0)
     streak_count = models.IntegerField(default=0)
     total_achievements = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
+        return self.username
 
+# --- Your Related Models (These look great!) ---
 
 class Badge(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='badges')
@@ -19,8 +26,7 @@ class Badge(models.Model):
     earned_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.name} - {self.name}"
-
+        return f"{self.user.username} - {self.name}"
 
 class Recommendation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recommendations')
@@ -29,8 +35,7 @@ class Recommendation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.name} - {self.title}"
-
+        return f"{self.user.username} - {self.title}"
 
 class Session(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
@@ -40,8 +45,7 @@ class Session(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.name} - {self.title}"
-
+        return f"{self.user.username} - {self.title}"
 
 class Activity(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activities')
@@ -51,4 +55,4 @@ class Activity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.name} - {self.title}"
+        return f"{self.user.username} - {self.title}"

@@ -11,16 +11,38 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# (This points to: Development/SAGE_Project/backend_api/core)
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# --- SAGE SECRETS CONFIGURATION ---
+# Go up two more folders to reach SAGE_Project, then look for .env
+ENV_FILE_PATH = BASE_DIR.parent.parent / '.env'
+
+# Load the variables into the environment
+load_dotenv(ENV_FILE_PATH)
+
+# Now, safely pull your DeepSeek key into Django's settings
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+
+# (Optional but highly recommended: You can also secure your Django Secret Key while you're at it!)
+# SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-insecure-key-here')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_$@fntm0i)jsb7v71!80(tl&f!$)4ih6)yc)57#di&coo#8ga^'
+# SECURITY WARNING: keep the secret key used in production secret!
+# Pull the key from the .env file.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+
+# Add a quick safety check so the server won't start if the key is missing
+if not SECRET_KEY:
+    raise ValueError("The DJANGO_SECRET_KEY environment variable is not set!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -38,6 +60,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'users',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'ai_assistant',
 ]
 
 MIDDLEWARE = [
@@ -101,6 +126,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# Tell Django REST Framework to use JWTs for authentication
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+
+
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
@@ -117,3 +153,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+AUTH_USER_MODEL = 'users.User'

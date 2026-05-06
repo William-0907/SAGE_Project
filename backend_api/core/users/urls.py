@@ -1,10 +1,17 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views
 
 urlpatterns = [
-    path('user/<int:user_id>/', views.user_detail, name='user_detail'),
-    path('user/<int:user_id>/recommendations/', views.user_recommendations, name='user_recommendations'),
-    path('user/<int:user_id>/sessions/', views.user_sessions, name='user_sessions'),
-    path('user/<int:user_id>/activities/', views.user_activities, name='user_activities'),
-    path('user/<int:user_id>/badges/', views.user_badges, name='user_badges'),
+    # --- Authentication Routes ---
+    path('register/', views.RegisterUserView.as_view(), name='register'),
+    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'), # This is your login!
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # --- User Data Routes ---
+    path('<int:user_id>/', views.user_detail, name='user_detail'),
+    path('<int:user_id>/recommendations/', views.user_recommendations, name='user_recommendations'),
+    path('<int:user_id>/sessions/', views.user_sessions, name='user_sessions'),
+    path('<int:user_id>/activities/', views.user_activities, name='user_activities'),
+    path('<int:user_id>/badges/', views.user_badges, name='user_badges'),
 ]

@@ -1,70 +1,65 @@
-import json
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import User, Badge, Recommendation, Session, Activity
+from .serializers import (
+    UserSerializer, UserRegistrationSerializer, 
+    BadgeSerializer, RecommendationSerializer, 
+    SessionSerializer, ActivitySerializer
+)
 
+# --- 1. REGISTRATION ENDPOINT ---
+class RegisterUserView(APIView):
+    permission_classes = [AllowAny] # Anyone can access this to sign up
 
-@csrf_exempt
-@require_http_methods(["GET"])
+    def post(self, request):
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "User registered successfully!"}, 
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# --- 2. DATA FETCHING ENDPOINTS (Using your Serializers) ---
+
+@api_view(['GET'])
 def user_detail(request, user_id):
     """Get user profile data"""
     try:
         user = User.objects.get(id=user_id)
-        return JsonResponse({
-            'id': user.id,
-            'name': user.name,
-            'email': user.email,
-            'streak_count': user.streak_count,
-            'total_achievements': user.total_achievements,
-        })
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
     except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-
-@csrf_exempt
-@require_http_methods(["GET"])
+@api_view(['GET'])
 def user_recommendations(request, user_id):
     """Get user's AI recommendations"""
-    try:
-        user = User.objects.get(id=user_id)
-        recommendations = Recommendation.objects.filter(user=user).values('id', 'title', 'description', 'created_at')
-        return JsonResponse(list(recommendations), safe=False)
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+    recommendations = Recommendation.objects.filter(user_id=user_id)
+    serializer = RecommendationSerializer(recommendations, many=True)
+    return Response(serializer.data)
 
-
-@csrf_exempt
-@require_http_methods(["GET"])
+@api_view(['GET'])
 def user_sessions(request, user_id):
     """Get user's group sessions"""
-    try:
-        user = User.objects.get(id=user_id)
-        sessions = Session.objects.filter(user=user).values('id', 'title', 'description', 'participants', 'created_at')
-        return JsonResponse(list(sessions), safe=False)
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+    sessions = Session.objects.filter(user_id=user_id)
+    serializer = SessionSerializer(sessions, many=True)
+    return Response(serializer.data)
 
-
-@csrf_exempt
-@require_http_methods(["GET"])
+@api_view(['GET'])
 def user_activities(request, user_id):
     """Get user's activity history"""
-    try:
-        user = User.objects.get(id=user_id)
-        activities = Activity.objects.filter(user=user).values('id', 'title', 'description', 'activity_type', 'created_at')
-        return JsonResponse(list(activities), safe=False)
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+    activities = Activity.objects.filter(user_id=user_id)
+    serializer = ActivitySerializer(activities, many=True)
+    return Response(serializer.data)
 
-
-@csrf_exempt
-@require_http_methods(["GET"])
+@api_view(['GET'])
 def user_badges(request, user_id):
     """Get user's earned badges"""
-    try:
-        user = User.objects.get(id=user_id)
-        badges = Badge.objects.filter(user=user).values('id', 'icon', 'name', 'earned_at')
-        return JsonResponse(list(badges), safe=False)
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+    badges = Badge.objects.filter(user_id=user_id)
+    serializer = BadgeSerializer(badges, many=True)
+    return Response(serializer.data)
