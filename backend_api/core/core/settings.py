@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -133,7 +134,13 @@ REST_FRAMEWORK = {
     ),
 }
 
-
+SIMPLE_JWT = {
+    # Make the access token last for 7 days instead of 5 minutes
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    
+    # Make the refresh token last for 30 days
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+}
 
 
 

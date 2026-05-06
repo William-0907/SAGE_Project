@@ -1,22 +1,48 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+
 class User(AbstractUser):
-    # AbstractUser already provides: username, email, password, first_name, last_name, date_joined
-    
-    # Role-Based Access Control (RBAC) - Required by SAGE FR-01
-    is_student = models.BooleanField(default=True)
+    # --- Roles ---
+    is_student = models.BooleanField(default=False)
     is_educator = models.BooleanField(default=False)
+    is_admin = models.BooleanField(default=False)
+
+    # --- Gamification Overview ---
+    level = models.IntegerField(default=1)
+    current_xp = models.IntegerField(default=0)
+    total_points = models.IntegerField(default=0)
+    streak = models.IntegerField(default=0)
     
-    # Gamification Stats
-    points = models.IntegerField(default=0)
-    streak_count = models.IntegerField(default=0)
-    total_achievements = models.IntegerField(default=0)
-    updated_at = models.DateTimeField(auto_now=True)
+    # --- Statistics Section ---
+    courses_completed = models.IntegerField(default=0)
+    study_hours = models.FloatField(default=0.0)
+    quizzes_taken = models.IntegerField(default=0)
+    group_activities_count = models.IntegerField(default=0)
+
+    # 🌟 NEW: The Level-Up Engine
+    def add_xp(self, amount):
+        self.current_xp += amount
+        self.total_points += amount
+        
+        # Define the leveling curve (e.g., Level 1 needs 1000xp, Level 2 needs 2000xp)
+        next_level_xp = self.level * 1000
+        
+        # Check if they earned enough to level up (loops in case they earned a massive amount of XP)
+        while self.current_xp >= next_level_xp:
+            self.level += 1
+            self.current_xp -= next_level_xp # Reset current XP progress for the new level
+            next_level_xp = self.level * 1000 # Calculate the goal for the next iteration
+            
+        self.save()
 
     def __str__(self):
         return self.username
-
 # --- Your Related Models (These look great!) ---
 
 class Badge(models.Model):

@@ -1,12 +1,36 @@
 from rest_framework import serializers
 from .models import User, Badge, Recommendation, Session, Activity
-
 # --- Your Related Serializers (Unchanged, these are great!) ---
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class BadgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Badge
-        fields = ['id', 'icon', 'name', 'earned_at']
+        fields = ['id', 'name', 'description', 'icon_url', 'created_at']
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    next_level_xp = serializers.SerializerMethodField()
+    badges = BadgeSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', # 🌟 Unhidden here!
+            'is_student', 'is_educator', 'level', 'current_xp', 
+            'next_level_xp', 'total_points', 'streak',
+            'courses_completed', 'study_hours', 'quizzes_taken', 
+            'group_activities_count', 'badges', 'date_joined'
+        ]
+        read_only_fields = ['id', 'username', 'email', 'date_joined']
+        
+    def get_next_level_xp(self, obj):
+        return obj.level * 1000
+
+
+
+
 
 class RecommendationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,15 +62,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'is_student', 'is_educator']
+        # 🌟 Added first_name and last_name here so the API accepts them
+        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'is_student', 'is_educator']
+        extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        # Using create_user() ensures the password gets encrypted/hashed in the database
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            is_student=validated_data.get('is_student', True),
+            first_name=validated_data.get('first_name', ''), # 🌟 Safely grab the first name
+            last_name=validated_data.get('last_name', ''),   # 🌟 Safely grab the last name
+            is_student=validated_data.get('is_student', False),
             is_educator=validated_data.get('is_educator', False)
         )
         return user
