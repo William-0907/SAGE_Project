@@ -64,7 +64,7 @@ export default function Dashboard() {
       setError(null);
 
       // Fetch user profile
-      const userResponse = await fetch(`${API_BASE_URL}/user/${USER_ID}/`);
+      const userResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/`);
       console.log('User response status:', userResponse.status);
       console.log('User response:', userResponse);
       
@@ -76,28 +76,28 @@ export default function Dashboard() {
       setUser(userData);
 
       // Fetch badges
-      const badgesResponse = await fetch(`${API_BASE_URL}/user/${USER_ID}/badges/`);
+      const badgesResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/badges/`);
       if (badgesResponse.ok) {
         const badgesData = await badgesResponse.json();
         setBadges(badgesData);
       }
 
       // Fetch recommendations
-      const recsResponse = await fetch(`${API_BASE_URL}/user/${USER_ID}/recommendations/`);
+      const recsResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/recommendations/`);
       if (recsResponse.ok) {
         const recsData = await recsResponse.json();
         setRecommendations(recsData);
       }
 
       // Fetch sessions
-      const sessionsResponse = await fetch(`${API_BASE_URL}/user/${USER_ID}/sessions/`);
+      const sessionsResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/sessions/`);
       if (sessionsResponse.ok) {
         const sessionsData = await sessionsResponse.json();
         setSessions(sessionsData);
       }
 
       // Fetch activities
-      const activitiesResponse = await fetch(`${API_BASE_URL}/user/${USER_ID}/activities/`);
+      const activitiesResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/activities/`);
       if (activitiesResponse.ok) {
         const activitiesData = await activitiesResponse.json();
         setActivities(activitiesData);

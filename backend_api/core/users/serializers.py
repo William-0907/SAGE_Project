@@ -53,8 +53,8 @@ class ActivitySerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        # Swapped 'name' for 'username', added RBAC roles and gamification points
-        fields = ['id', 'username', 'email', 'is_student', 'is_educator', 'points', 'streak_count', 'total_achievements']
+        # Fixed field names to match the actual User model
+        fields = ['id', 'username', 'email', 'is_student', 'is_educator', 'level', 'current_xp', 'total_points', 'streak', 'courses_completed', 'study_hours', 'quizzes_taken', 'group_activities_count']
 
 # Use this ONLY when a brand new user is signing up
 class UserRegistrationSerializer(serializers.ModelSerializer):

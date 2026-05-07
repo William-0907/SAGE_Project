@@ -7,15 +7,65 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../hooks/useAuth';
 
 export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showAITip, setShowAITip] = useState(true);
   const router = useRouter();
+  const { login, register, loading, error, clearError } = useAuth();
+
+  // Form state
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      clearError();
+      await login({ email: username, password }); // API uses email field
+      // Navigation happens automatically after login success
+      router.replace('/');
+    } catch (err) {
+      Alert.alert('Login Failed', error || 'Please check your credentials');
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!username || !email || !password || !firstName || !lastName) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      clearError();
+      await register({
+        username,
+        email,
+        password,
+        first_name: firstName,
+        last_name: lastName,
+        is_student: true,
+      });
+      // Navigation happens automatically after registration success
+      router.replace('/');
+    } catch (err) {
+      Alert.alert('Sign Up Failed', error || 'Please try again');
+    }
+  };
 
   return (
     <LinearGradient
@@ -44,7 +94,7 @@ export default function LoginScreen() {
                   <Ionicons name="sparkles-outline" size={16} color="#3B0764" />
                 </View>
                 <Text style={styles.aiText}>
-                  Welcome! Sign in to continue.
+                  {isSignUp ? 'Create a new account to join SAGE' : 'Welcome! Sign in to continue.'}
                 </Text>
                 <TouchableOpacity onPress={() => setShowAITip(false)}>
                   <Text style={styles.closeText}>×</Text>
@@ -59,19 +109,59 @@ export default function LoginScreen() {
               {isSignUp ? 'Create Account' : 'Welcome Back'}
             </Text>
 
-            {isSignUp && (
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={18} color="#9CA3AF" />
-                <TextInput placeholder="Full Name" style={styles.input} />
+            {/* Error message */}
+            {error && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
+            {isSignUp && (
+              <>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={18} color="#9CA3AF" />
+                  <TextInput
+                    placeholder="First Name"
+                    style={styles.input}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    editable={!loading}
+                  />
+                </View>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={18} color="#9CA3AF" />
+                  <TextInput
+                    placeholder="Last Name"
+                    style={styles.input}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    editable={!loading}
+                  />
+                </View>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="mail-outline" size={18} color="#9CA3AF" />
+                  <TextInput
+                    placeholder="Email"
+                    keyboardType="email-address"
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                    editable={!loading}
+                  />
+                </View>
+              </>
+            )}
+
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={18} color="#9CA3AF" />
+              <Ionicons name="person-outline" size={18} color="#9CA3AF" />
               <TextInput
-                placeholder="Email"
-                keyboardType="email-address"
+                placeholder={isSignUp ? "Choose Username" : "Email or Username"}
                 style={styles.input}
+                value={username}
+                onChangeText={setUsername}
+                editable={!loading}
+                keyboardType={!isSignUp ? "email-address" : "default"}
               />
             </View>
 
@@ -81,23 +171,28 @@ export default function LoginScreen() {
                 placeholder="Password"
                 secureTextEntry
                 style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                editable={!loading}
               />
             </View>
 
             <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => {
-                // After successful authentication
-                router.replace('/dashboard');
-              }}
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+              onPress={isSignUp ? handleSignUp : handleLogin}
+              disabled={loading}
             >
-              <Text style={styles.loginButtonText}>
-                {isSignUp ? 'Sign Up' : 'Log In'}
-              </Text>
+              {loading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.loginButtonText}>
+                  {isSignUp ? 'Sign Up' : 'Log In'}
+                </Text>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-              <Text style={styles.toggleText}>
+            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} disabled={loading}>
+              <Text style={[styles.toggleText, loading && { opacity: 0.5 }]}>
                 {isSignUp
                   ? 'Already have an account? Log In'
                   : "Don't have an account? Sign Up"}
@@ -157,6 +252,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontWeight: '600',
   },
+  errorContainer: {
+    backgroundColor: '#FEE2E2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#DC2626',
+    marginLeft: 8,
+    flex: 1,
+    fontSize: 13,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -174,6 +283,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: { color: 'white', fontWeight: '600' },
   toggleText: {
