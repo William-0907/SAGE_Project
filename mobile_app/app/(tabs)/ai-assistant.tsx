@@ -122,15 +122,18 @@ export default function AIAssistantScreen() {
     setIsLoading(true);
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
+    // 🌟 Capture the file locally and clear state immediately
+    const fileToProcess = attachedFile;
+    setAttachedFile(null);
+    setAttachedFileName(null);
+
     let extractedText = "";
-    if (attachedFile) {
+    if (fileToProcess) {
       try {
-        // --- Text Extraction Logic (Now happens when sending) ---
-        if (attachedFile.mimeType === 'text/plain') {
-          extractedText = await FileSystem.readAsStringAsync(attachedFile.uri);
+        if (fileToProcess.mimeType === 'text/plain') {
+          extractedText = await FileSystem.readAsStringAsync(fileToProcess.uri);
         } else {
-          // For PDF/Images, we provide metadata context since deep extraction is server-side
-          extractedText = `[FILE ATTACHED]\nName: ${attachedFile.name}\nType: ${attachedFile.mimeType}\nSize: ${attachedFile.size} bytes`;
+          extractedText = `[FILE ATTACHED]\nName: ${fileToProcess.name}\nType: ${fileToProcess.mimeType}\nSize: ${fileToProcess.size} bytes`;
         }
       } catch (err) {
         console.error("Text extraction failed:", err);
