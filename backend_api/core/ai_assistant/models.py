@@ -1,3 +1,31 @@
 from django.db import models
+from django.conf import settings
 
-# Create your models here.
+class ChatSession(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chat_sessions')
+    title = models.CharField(max_length=255, default="New Conversation")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+
+class ChatMessage(models.Model):
+    # 🌟 We keep the User field just like you asked!
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chat_messages')
+    
+    # 🌟 We add the Session field, but make it optional (null=True, blank=True)
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
+    
+    text = models.TextField()
+    is_ai = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{'AI' if self.is_ai else 'User'}: {self.text[:30]}"

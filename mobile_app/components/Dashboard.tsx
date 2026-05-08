@@ -1,25 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/config/api';
+import { getCurrentUser, getToken } from '@/services/authService';
+
+// Enable Layout Animations for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface User {
   id: number;
-  name: string;
-  email: string;
-  streak_count: number;
-  total_achievements: number;
+  name?: string;
+  first_name?: string;
+  username?: string;
+  streak?: number;
+  level?: number;
+  total_points?: number;
 }
 
 interface Badge {
   id: number;
-  icon: string;
+  icon_url?: string;
+  icon?: string;
   name: string;
 }
 
@@ -52,7 +65,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const USER_ID = 1; // Testing with user ID 1
+  // FAB State & Animation Tracker
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const fabAnim = useRef(new Animated.Value(0)).current; 
 
   useEffect(() => {
     fetchUserData();
@@ -63,60 +78,102 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch user profile
-      const userResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/`);
-      console.log('User response status:', userResponse.status);
-      console.log('User response:', userResponse);
+      const userProfile = await getCurrentUser();
       
-      if (!userResponse.ok) {
-        const errorText = await userResponse.text();
-        throw new Error(`Failed to fetch user: ${userResponse.status} - ${errorText}`);
-      }
-      const userData = await userResponse.json();
-      setUser(userData);
-
-      // Fetch badges
-      const badgesResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/badges/`);
-      if (badgesResponse.ok) {
-        const badgesData = await badgesResponse.json();
-        setBadges(badgesData);
+      // 🌟 CRITICAL FIX: Stop execution if the user is missing or logged out
+      if (!userProfile || !userProfile.id) {
+        setError("Session expired or user not found. Please log out and log back in.");
+        setLoading(false);
+        return; 
       }
 
-      // Fetch recommendations
-      const recsResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/recommendations/`);
-      if (recsResponse.ok) {
-        const recsData = await recsResponse.json();
-        setRecommendations(recsData);
+      setUser(userProfile);
+      const realUserId = userProfile.id;
+
+      const token = await getToken();
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
+      if (userProfile.badges) {
+        setBadges(userProfile.badges);
+      } else {
+        const badgesRes = await fetch(`${API_BASE_URL}/users/${realUserId}/badges/`, { headers: authHeaders });
+        if (badgesRes.ok) setBadges(await badgesRes.json());
       }
 
-      // Fetch sessions
-      const sessionsResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/sessions/`);
-      if (sessionsResponse.ok) {
-        const sessionsData = await sessionsResponse.json();
-        setSessions(sessionsData);
-      }
+      const recsRes = await fetch(`${API_BASE_URL}/users/${realUserId}/recommendations/`, { headers: authHeaders });
+      if (recsRes.ok) setRecommendations(await recsRes.json());
 
-      // Fetch activities
-      const activitiesResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/activities/`);
-      if (activitiesResponse.ok) {
-        const activitiesData = await activitiesResponse.json();
-        setActivities(activitiesData);
-      }
+      const sessionsRes = await fetch(`${API_BASE_URL}/users/${realUserId}/sessions/`, { headers: authHeaders });
+      if (sessionsRes.ok) setSessions(await sessionsRes.json());
+
+      const activitiesRes = await fetch(`${API_BASE_URL}/users/${realUserId}/activities/`, { headers: authHeaders });
+      if (activitiesRes.ok) setActivities(await activitiesRes.json());
 
       setLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
-      console.log('Error fetching data:', errorMessage);
-      console.log('API_BASE_URL:', API_BASE_URL);
+      console.error('Error fetching data:', errorMessage);
       setError(errorMessage);
       setLoading(false);
     }
   };
 
+  const toggleFab = () => {
+    if (isFabOpen) {
+      Animated.timing(fabAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => setIsFabOpen(false));
+    } else {
+      setIsFabOpen(true);
+      requestAnimationFrame(() => {
+        Animated.spring(fabAnim, {
+          toValue: 1,
+          friction: 5,
+          tension: 60,
+          useNativeDriver: true,
+        }).start();
+      });
+    }
+  };
+
+  const spin = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'] 
+  });
+
+  const item1Anim = {
+    opacity: fabAnim,
+    transform: [
+      { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [45, 0] }) },
+      { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }
+    ]
+  };
+
+  const item2Anim = {
+    opacity: fabAnim,
+    transform: [
+      { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+      { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }
+    ]
+  };
+
+  const item3Anim = {
+    opacity: fabAnim,
+    transform: [
+      { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) },
+      { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }
+    ]
+  };
+
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#7C3AED" />
+      <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#6D28D9" />
         <Text style={{ marginTop: 10, color: '#666' }}>Loading dashboard...</Text>
       </View>
     );
@@ -124,266 +181,269 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+      <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
         <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
         <Text style={{ marginTop: 10, color: '#EF4444', fontSize: 16, textAlign: 'center' }}>
           {error}
-        </Text>
-        <Text style={{ marginTop: 20, color: '#666', textAlign: 'center' }}>
-          Make sure the Django server is running and ngrok is forwarding traffic
         </Text>
       </View>
     );
   }
 
+  const displayName = user?.first_name || user?.name || user?.username || 'User';
+
   return (
-    <ScrollView style={styles.container}>
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcome}>Welcome Back,</Text>
-          <Text style={styles.name}>{user?.name || 'User'}</Text>
-        </View>
-
-        <View style={styles.iconCircle}>
-          <Ionicons name="star-outline" size={24} color="white" />
-        </View>
-      </View>
-
-      {/* Quick Stats */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Ionicons name="flame-outline" size={22} color="orange" />
-          <Text style={styles.statLabel}>Streak</Text>
-          <Text style={styles.statValue}>{user?.streak_count || 0}</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <Ionicons name="trophy-outline" size={22} color="gold" />
-          <Text style={styles.statLabel}>Achievements</Text>
-          <Text style={styles.statValue}>{user?.total_achievements || 0}</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <Ionicons name="trending-up-outline" size={22} color="green" />
-          <Text style={styles.statLabel}>Progress</Text>
-          <Text style={styles.statValue}>88%</Text>
-        </View>
-      </View>
-
-      {/* AI Section */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="sparkles-outline" size={18} color="#7C3AED" />
-          <Text style={styles.sectionTitle}>AI Recommendations</Text>
-        </View>
-
-        {recommendations.length > 0 ? (
-          recommendations.slice(0, 2).map((rec) => (
-            <View key={rec.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{rec.title}</Text>
-              <Text style={styles.cardDescription}>{rec.description}</Text>
+    <View style={styles.mainWrapper}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        
+        {/* 🌟 COMBINED: Glassmorphic Figma Header */}
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.welcome}>Welcome Back,</Text>
+              <Text style={styles.name}>{displayName}</Text>
             </View>
-          ))
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>No recommendations yet</Text>
-            <Text style={styles.cardDescription}>Come back soon for personalized AI recommendations</Text>
+            <View style={styles.iconCircle}>
+              <Ionicons name="star" size={24} color="white" />
+            </View>
           </View>
-        )}
-      </View>
 
-      {/* Sessions */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="people-outline" size={18} color="#7C3AED" />
-          <Text style={styles.sectionTitle}>Group Sessions</Text>
+          <View style={styles.glassStatsRow}>
+            <View style={styles.glassStatCard}>
+              <View style={styles.glassStatIconRow}>
+                <Ionicons name="flame" size={20} color="#F97316" />
+                <Text style={styles.glassStatValue}>{user?.streak || 0}</Text>
+              </View>
+              <Text style={styles.glassStatLabel}>Day Streak</Text>
+            </View>
+
+            <View style={styles.glassStatCard}>
+              <View style={styles.glassStatIconRow}>
+                <Ionicons name="trophy" size={20} color="#FBBF24" />
+                <Text style={styles.glassStatValue}>{user?.total_points || badges.length * 100 || 0}</Text>
+              </View>
+              <Text style={styles.glassStatLabel}>Points</Text>
+            </View>
+
+            <View style={styles.glassStatCard}>
+              <View style={styles.glassStatIconRow}>
+                <Ionicons name="trending-up" size={20} color="#34D399" />
+                <Text style={styles.glassStatValue}>Lv {user?.level || 1}</Text>
+              </View>
+              <Text style={styles.glassStatLabel}>Level</Text>
+            </View>
+          </View>
         </View>
 
-        {sessions.length > 0 ? (
-          sessions.slice(0, 2).map((session) => (
-            <View key={session.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{session.title}</Text>
-              <Text style={styles.cardDescription}>{session.participants} participants</Text>
-            </View>
-          ))
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>No sessions yet</Text>
-            <Text style={styles.cardDescription}>Create or join a group session</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Activities */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="history-outline" size={18} color="#7C3AED" />
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
-        </View>
-
-        {activities.length > 0 ? (
-          activities.slice(0, 2).map((activity) => (
-            <View key={activity.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{activity.title}</Text>
-              <Text style={styles.cardDescription}>{activity.description}</Text>
-            </View>
-          ))
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>No activities yet</Text>
-            <Text style={styles.cardDescription}>Your activities will appear here</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Badges */}
-      {badges.length > 0 && (
-        <View>
+        <View style={styles.content}>
+          {/* AI Recommendations */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="ribbon-outline" size={18} color="#7C3AED" />
-              <Text style={styles.sectionTitle}>Badges</Text>
-            </View>
-          </View>
-          <View style={styles.badgeRow}>
-            {badges.map((badge) => (
-              <View key={badge.id} style={styles.badgeCard}>
-                <Text style={styles.badgeIcon}>{badge.icon}</Text>
-                <Text style={styles.badgeLabel}>{badge.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="sparkles" size={20} color="#6D28D9" />
+                <Text style={styles.sectionTitle}>AI Recommendations</Text>
               </View>
-            ))}
+            </View>
+            
+            {recommendations.length > 0 ? (
+              recommendations.slice(0, 2).map((rec, index) => (
+                <View key={rec.id} style={[styles.card, styles.aiCard, index === 0 ? { borderLeftColor: '#EF4444' } : { borderLeftColor: '#F59E0B' }]}>
+                  <View style={styles.aiDotRow}>
+                    <View style={[styles.priorityDot, index === 0 ? { backgroundColor: '#EF4444' } : { backgroundColor: '#F59E0B' }]} />
+                    <Text style={styles.cardTitle}>{rec.title}</Text>
+                  </View>
+                  <Text style={styles.cardDescription}>{rec.description}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>No recommendations yet</Text>
+                <Text style={styles.cardDescription}>Come back soon for personalized AI recommendations</Text>
+              </View>
+            )}
           </View>
+
+          {/* 🌟 COMBINED: Group Sessions with JOIN button */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="people" size={20} color="#1F2937" />
+                <Text style={styles.sectionTitle}>Group Sessions</Text>
+              </View>
+              <TouchableOpacity>
+                <Text style={styles.joinButtonText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {sessions.length > 0 ? (
+              sessions.slice(0, 2).map((session) => (
+                <View key={session.id} style={styles.card}>
+                  <View style={styles.sessionHeaderRow}>
+                    <Text style={styles.cardTitle}>{session.title}</Text>
+                    <View style={styles.badgePill}>
+                      <Ionicons name="time-outline" size={12} color="#4B5563" />
+                      <Text style={styles.badgePillText}>Active</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.cardDescription}>{session.description}</Text>
+                  <View style={styles.sessionFooter}>
+                    <Ionicons name="person" size={14} color="#6D28D9" />
+                    <Text style={styles.sessionFooterText}>{session.participants} participants</Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>No sessions yet</Text>
+                <Text style={styles.cardDescription}>Create or join a group session</Text>
+              </View>
+            )}
+          </View>
+
+          {/* 🌟 RESTORED: Recent Activities */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="time-outline" size={20} color="#1F2937" />
+                <Text style={styles.sectionTitle}>Recent Activities</Text>
+              </View>
+            </View>
+
+            {activities.length > 0 ? (
+              activities.slice(0, 2).map((activity) => (
+                <View key={activity.id} style={styles.card}>
+                  <Text style={styles.cardTitle}>{activity.title}</Text>
+                  <Text style={styles.cardDescription}>{activity.description}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>No activities yet</Text>
+                <Text style={styles.cardDescription}>Your activities will appear here</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Recent Badges */}
+          {badges.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="ribbon" size={20} color="#1F2937" />
+                  <Text style={styles.sectionTitle}>Recent Badges</Text>
+                </View>
+              </View>
+              <View style={styles.badgeRow}>
+                {badges.slice(0, 4).map((badge) => (
+                  <View key={badge.id} style={styles.badgeCard}>
+                    <Text style={styles.badgeIcon}>{badge.icon || badge.icon_url || '🏆'}</Text>
+                    <Text style={styles.badgeLabel} numberOfLines={1}>{badge.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* FAB Sliding Menu Items */}
+      {isFabOpen && (
+        <View style={styles.fabMenu}>
+          
+          <Animated.View style={[styles.fabMenuItemWrapper, item1Anim]}>
+            <TouchableOpacity style={styles.fabMenuItem}>
+              <Text style={styles.fabMenuText}>Generate Quiz</Text>
+              <View style={styles.fabMenuIconBox}><Ionicons name="document-text" size={20} color="#6D28D9" /></View>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View style={[styles.fabMenuItemWrapper, item2Anim]}>
+            <TouchableOpacity style={styles.fabMenuItem}>
+              <Text style={styles.fabMenuText}>Create Group</Text>
+              <View style={styles.fabMenuIconBox}><Ionicons name="people" size={20} color="#6D28D9" /></View>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View style={[styles.fabMenuItemWrapper, item3Anim]}>
+            <TouchableOpacity style={styles.fabMenuItem}>
+              <Text style={styles.fabMenuText}>Study Plan</Text>
+              <View style={styles.fabMenuIconBox}><Ionicons name="calendar" size={20} color="#6D28D9" /></View>
+            </TouchableOpacity>
+          </Animated.View>
+
         </View>
       )}
+      
+      {/* Animated Rotating Main Button */}
+      <TouchableOpacity 
+        style={[styles.fabMain, isFabOpen ? { backgroundColor: '#EF4444' } : { backgroundColor: '#6D28D9' }]} 
+        onPress={toggleFab}
+        activeOpacity={0.8}
+      >
+        <Animated.View style={{ transform: [{ rotate: spin }] }}>
+          <Ionicons name={isFabOpen ? "remove" : "add"} size={32} color="white" />
+        </Animated.View>
+      </TouchableOpacity>
 
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
+  mainWrapper: { flex: 1, backgroundColor: '#F9FAFB' },
+  loadingContainer: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1 },
+  
+  // Header
+  header: { backgroundColor: '#6D28D9', paddingTop: 40, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 4 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  welcome: { color: '#DDD6FE', fontSize: 14 },
+  name: { color: 'white', fontSize: 24, fontWeight: '700', marginTop: 2 },
+  iconCircle: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 50 },
 
-  header: {
-    backgroundColor: '#7C3AED',
-    padding: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  // Glassmorphic Quick Stats
+  glassStatsRow: { flexDirection: 'row', gap: 10 },
+  glassStatCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  glassStatIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  glassStatValue: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+  glassStatLabel: { color: '#DDD6FE', fontSize: 12 },
 
-  welcome: {
-    color: '#E9D5FF',
-    fontSize: 14,
-  },
+  content: { padding: 20 },
+  section: { marginBottom: 24 },
+  
+  // Section Headers
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  joinButtonText: { color: '#6D28D9', fontSize: 15, fontWeight: '600' }, 
 
-  name: {
-    color: 'white',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
+  // Cards
+  card: { backgroundColor: 'white', borderRadius: 16, marginBottom: 12, padding: 16, elevation: 2, shadowColor: '#111', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  cardDescription: { fontSize: 13, color: '#6B7280', marginTop: 4, lineHeight: 18 },
+  
+  // Custom AI Card Styling
+  aiCard: { borderLeftWidth: 4, paddingLeft: 12 },
+  aiDotRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  priorityDot: { width: 8, height: 8, borderRadius: 4 },
 
-  iconCircle: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    padding: 10,
-    borderRadius: 50,
-  },
+  // Custom Session Card Styling
+  sessionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  badgePill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  badgePillText: { fontSize: 11, color: '#4B5563', fontWeight: '500' },
+  sessionFooter: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  sessionFooterText: { fontSize: 13, color: '#6D28D9', fontWeight: '500' },
 
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-    paddingHorizontal: 10,
-  },
+  // Badges
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  badgeCard: { width: '22%', backgroundColor: '#FEFCE8', paddingVertical: 12, borderRadius: 12, alignItems: 'center', elevation: 1 },
+  badgeIcon: { fontSize: 26, marginBottom: 4 },
+  badgeLabel: { fontSize: 10, color: '#374151', fontWeight: '500', textAlign: 'center' },
 
-  statCard: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    elevation: 3,
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
-  },
-
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 5,
-  },
-
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#7C3AED',
-    marginTop: 2,
-  },
-
-  section: {
-    padding: 20,
-  },
-
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 6,
-  },
-
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
-    padding: 12,
-  },
-
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-
-  cardDescription: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-
-  badgeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-
-  badgeCard: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    elevation: 2,
-    alignItems: 'center',
-  },
-
-  badgeIcon: {
-    fontSize: 28,
-  },
-
-  badgeLabel: {
-    fontSize: 10,
-    color: '#666',
-    marginTop: 5,
-  },
+  // Floating Action Menu Styles
+  fabMain: { position: 'absolute', bottom: 20, right: 20, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
+  fabMenu: { position: 'absolute', bottom: 90, right: 20, alignItems: 'flex-end' },
+  fabMenuItemWrapper: { marginBottom: 16 }, 
+  fabMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fabMenuText: { backgroundColor: 'white', color: '#1F2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, fontSize: 14, fontWeight: '600', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, overflow: 'hidden' },
+  fabMenuIconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
 });

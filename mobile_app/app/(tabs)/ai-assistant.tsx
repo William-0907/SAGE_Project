@@ -1,8 +1,13 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Modal, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getToken } from '@/services/authService';
+import { API_BASE_URL } from '@/config/api';
+
+// 🌟 NEW: Enable Layout Animations for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface Message {
   id: number;
@@ -11,200 +16,271 @@ interface Message {
   time: string;
 }
 
-interface QuickAction {
+interface ChatSession {
   id: number;
-  label: string;
-  icon: string;
-  color: string;
+  title: string;
 }
 
 export default function AIAssistantScreen() {
-  const colorScheme = useColorScheme();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      type: 'ai',
-      text: "Hi! I'm your SAGE AI assistant. I can help you with personalized study plans, answer questions, suggest resources, and track your progress. How can I help you today?",
-      time: '10:30 AM',
-    },
-  ]);
-  const [inputValue, setInputValue] = useState('');
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const quickActions: QuickAction[] = [
+  // --- Multi-Thread State ---
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  
+  // --- Message State ---
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const quickActions = [
     { id: 1, label: 'Study Plan', icon: 'book', color: '#3B82F6' },
-    { id: 2, label: 'Set Goals', icon: 'target', color: '#10B981' },
-    { id: 3, label: 'Schedule', icon: 'calendar', color: '#9333EA' },
+    { id: 2, label: 'Set Goals', icon: 'flag', color: '#10B981' },
+    { id: 3, label: 'Schedule', icon: 'calendar', color: '#7C3AED' }, 
     { id: 4, label: 'Progress', icon: 'trending-up', color: '#F97316' },
   ];
 
-  const suggestions = [
-    "What should I study today?",
-    "Help me with calculus",
-    "Create a quiz for me",
-    "Show my weak areas",
-  ];
+  // 1. Load Sessions on Startup
+  useEffect(() => {
+    loadSessions();
+  }, []);
 
-  const colors = Colors[colorScheme ?? 'light'];
+  const loadSessions = async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE_URL}/ai/sessions/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data);
+        if (data.length > 0 && !activeSessionId) {
+          loadHistory(data[0].id);
+        } else if (data.length === 0) {
+          startNewChat();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load sessions", err);
+    }
+  };
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
+  // 2. Load a Specific Chat Thread
+  const loadHistory = async (sessionId: number) => {
+    setActiveSessionId(sessionId);
+    setIsMenuVisible(false);
+    setMessages([]); 
+    
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE_URL}/ai/sessions/${sessionId}/history/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const history = await res.json();
+        setMessages(history);
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 100);
+      }
+    } catch (err) {
+      console.error("Failed to load history", err);
+    }
+  };
+
+  // 3. Start a Blank Canvas
+  const startNewChat = () => {
+    setActiveSessionId(null); 
+    setMessages([{
+      id: 1,
+      type: 'ai',
+      text: "Hi! I'm your SAGE AI assistant. Let's start a new topic. How can I help?",
+      time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    }]);
+    setIsMenuVisible(false);
+  };
+
+  // 4. Send Message
+  const handleSend = async (overrideText?: string) => {
+    const textToSend = overrideText || inputValue;
+    if (!textToSend.trim() || isLoading) return;
+
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const userMessage: Message = {
-      id: messages.length + 1,
+      id: Date.now(),
       type: 'user',
-      text: inputValue,
+      text: textToSend.trim(),
       time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
     };
 
-    setMessages([...messages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
+    setIsLoading(true);
+    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: messages.length + 2,
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/ai/ask/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: textToSend.trim(), session_id: activeSessionId })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+
+      const data = await response.json();
+      
+      // If this was a brand new chat, Django just created an ID for it. Save it!
+      if (!activeSessionId && data.session_id) {
+        setActiveSessionId(data.session_id);
+        loadSessions(); 
+      }
+
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1,
         type: 'ai',
-        text: "I understand you need help with that. Based on your learning history, I recommend focusing on practice problems. Would you like me to generate a personalized quiz?",
+        text: data.reply,
         time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1000);
+      }]);
+    } catch (error) {
+      console.error("AI Chat Error:", error);
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1,
+        type: 'ai',
+        text: "Sorry, I couldn't reach the server. Make sure your Django backend is running the latest code!",
+        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      }]);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+    }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
+      
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: '#9333EA' }]}>
+      <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View style={styles.headerIconBox}>
-            <Ionicons name="sparkles" size={24} color="white" />
-          </View>
+          <TouchableOpacity onPress={() => setIsMenuVisible(true)} style={styles.menuButton}>
+            <Ionicons name="menu" size={28} color="white" />
+          </TouchableOpacity>
           <View>
-            <Text style={styles.headerTitle}>AI Assistant</Text>
-            <Text style={styles.headerSubtitle}>Always here to help you learn</Text>
+            <Text style={styles.headerTitle}>SAGE Chat</Text>
+            <Text style={styles.headerSubtitle}>
+              {activeSessionId ? "Active Session" : "New Conversation"}
+            </Text>
           </View>
         </View>
+        <TouchableOpacity onPress={startNewChat} style={styles.newChatHeaderBtn}>
+          <Ionicons name="create-outline" size={24} color="white" />
+        </TouchableOpacity>
       </View>
 
-      {/* Quick Actions */}
-      <View style={[styles.quickActionsContainer, { backgroundColor: colors.surface }]}>
-        <View style={styles.quickActionsGrid}>
-          {quickActions.map((action) => (
-            <TouchableOpacity key={action.id} style={styles.quickActionButton}>
-              <View style={[styles.quickActionIcon, { backgroundColor: action.color }]}>
-                <Ionicons
-                  name={action.icon as any}
-                  size={20}
-                  color="white"
-                />
-              </View>
-              <Text style={[styles.quickActionLabel, { color: colors.text }]}>
-                {action.label}
-              </Text>
+      {/* 🌟 NEW: Sidebar Modal */}
+      <Modal visible={isMenuVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          
+          {/* Drawer Content */}
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chat History</Text>
+            </View>
+
+            <TouchableOpacity style={styles.newChatButton} onPress={startNewChat}>
+              <Ionicons name="add" size={20} color="white" />
+              <Text style={styles.newChatText}>Start New Chat</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </View>
 
-      {/* Messages */}
-      <ScrollView style={styles.messagesContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.sessionList}>
+              {sessions.map(session => (
+                <TouchableOpacity 
+                  key={session.id} 
+                  style={[styles.sessionItem, activeSessionId === session.id && styles.activeSessionItem]}
+                  onPress={() => loadHistory(session.id)}
+                >
+                  <Ionicons name="chatbubble-outline" size={20} color={activeSessionId === session.id ? "#7C3AED" : "#6B7280"} />
+                  <Text style={[styles.sessionText, activeSessionId === session.id && styles.activeSessionText]} numberOfLines={1}>
+                    {session.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Invisible tap area to close the sidebar */}
+          <TouchableOpacity style={styles.modalCloseArea} onPress={() => setIsMenuVisible(false)} />
+        </View>
+      </Modal>
+
+      {/* Messages Scroll Area */}
+      <ScrollView ref={scrollViewRef} style={styles.messagesContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.messagesList}>
           {messages.map((message) => (
-            <View
-              key={message.id}
-              style={[
-                styles.messageWrapper,
-                message.type === 'user' ? styles.userMessageWrapper : styles.aiMessageWrapper,
-              ]}
-            >
-              <View
-                style={[
-                  styles.messageBubble,
-                  message.type === 'user'
-                    ? [styles.userMessage, { backgroundColor: '#6366F1' }]
-                    : [styles.aiMessage, { backgroundColor: colors.surface }],
-                ]}
-              >
+            <View key={message.id} style={[styles.messageWrapper, message.type === 'user' ? styles.userMessageWrapper : styles.aiMessageWrapper]}>
+              <View style={[styles.messageBubble, message.type === 'user' ? [styles.userMessage, { backgroundColor: '#7C3AED' }] : [styles.aiMessage, { backgroundColor: 'white' }]]}>
                 {message.type === 'ai' && (
                   <View style={styles.aiMessageHeader}>
-                    <Ionicons name="sparkles" size={14} color="#6366F1" />
+                    <Ionicons name="sparkles" size={14} color="#7C3AED" />
                     <Text style={styles.aiLabel}>SAGE AI</Text>
                   </View>
                 )}
-                <Text
-                  style={[
-                    styles.messageText,
-                    message.type === 'user'
-                      ? { color: 'white' }
-                      : { color: colors.text },
-                  ]}
-                >
-                  {message.text}
-                </Text>
-                <Text
-                  style={[
-                    styles.messageTime,
-                    message.type === 'user'
-                      ? { color: 'rgba(255,255,255,0.7)' }
-                      : { color: '#999' },
-                  ]}
-                >
-                  {message.time}
-                </Text>
+                <Text style={[styles.messageText, message.type === 'user' ? { color: 'white' } : { color: '#1F2937' }]}>{message.text}</Text>
+                <Text style={[styles.messageTime, message.type === 'user' ? { color: 'rgba(255,255,255,0.7)' } : { color: '#999' }]}>{message.time}</Text>
               </View>
             </View>
           ))}
-
-          {/* Suggestions */}
-          {messages.length === 1 && (
-            <View style={styles.suggestionsContainer}>
-              <View style={styles.suggestionsHeader}>
-                <Ionicons name="lightbulb" size={16} color="#666" />
-                <Text style={styles.suggestionsTitle}>Try asking:</Text>
+          
+          {isLoading && (
+            <View style={[styles.messageWrapper, styles.aiMessageWrapper]}>
+              <View style={[styles.messageBubble, styles.aiMessage, { backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                <ActivityIndicator size="small" color="#7C3AED" />
+                <Text style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>SAGE AI is thinking...</Text>
               </View>
-              <View style={styles.suggestionsGrid}>
-                {suggestions.map((suggestion, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[styles.suggestionButton, { backgroundColor: colors.surface }]}
-                    onPress={() => setInputValue(suggestion)}
+            </View>
+          )}
+
+          {messages.length === 1 && !isLoading && (
+            <View style={styles.quickActionsContainer}>
+              <Text style={styles.quickActionsTitle}>Suggested Topics</Text>
+              <View style={styles.quickActionsGrid}>
+                {quickActions.map((action) => (
+                  <TouchableOpacity 
+                    key={action.id} 
+                    style={styles.quickActionButton}
+                    onPress={() => {
+                      setTimeout(() => {
+                        handleSend(`Help me with my ${action.label.toLowerCase()}`);
+                      }, 250);
+                    }}
                   >
-                    <Text
-                      style={[styles.suggestionText, { color: colors.text }]}
-                      numberOfLines={2}
-                    >
-                      {suggestion}
-                    </Text>
+                    <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
+                      <Ionicons name={action.icon as any} size={24} color={action.color} />
+                    </View>
+                    <Text style={styles.quickActionLabel}>{action.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
           )}
+
         </View>
       </ScrollView>
 
       {/* Input Area */}
-      <View style={[styles.inputContainer, { backgroundColor: colors.surface }]}>
+      <View style={styles.inputContainer}>
         <View style={styles.inputBox}>
-          <View style={[styles.inputField, { backgroundColor: '#F3F4F6' }]}>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Ask me anything..."
-              placeholderTextColor="#999"
-              value={inputValue}
-              onChangeText={setInputValue}
-              onSubmitEditing={handleSend}
-            />
-            <TouchableOpacity>
-              <Ionicons name="mic" size={20} color="#999" />
-            </TouchableOpacity>
+          <View style={styles.inputField}>
+            <TextInput style={styles.input} placeholder="Ask me anything..." placeholderTextColor="#999" value={inputValue} onChangeText={setInputValue} onSubmitEditing={() => handleSend()} editable={!isLoading} />
           </View>
-          <TouchableOpacity
-            style={[styles.sendButton, { backgroundColor: '#6366F1' }]}
-            onPress={handleSend}
-            disabled={!inputValue.trim()}
-          >
-            <Ionicons name="send" size={18} color="white" />
+          <TouchableOpacity style={[styles.sendButton, { backgroundColor: isLoading || !inputValue.trim() ? '#E5E7EB' : '#7C3AED' }]} onPress={() => handleSend()} disabled={isLoading || !inputValue.trim()}>
+            <Ionicons name="send" size={18} color={isLoading || !inputValue.trim() ? '#999' : 'white'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -213,178 +289,52 @@ export default function AIAssistantScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingTop: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  headerIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'white',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 2,
-  },
-  quickActionsContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  quickActionButton: {
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  quickActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  quickActionLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesList: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  messageWrapper: {
-    marginBottom: 12,
-    flexDirection: 'row',
-  },
-  userMessageWrapper: {
-    justifyContent: 'flex-end',
-  },
-  aiMessageWrapper: {
-    justifyContent: 'flex-start',
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  userMessage: {
-    borderBottomRightRadius: 2,
-  },
-  aiMessage: {
-    borderBottomLeftRadius: 2,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  aiMessageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  aiLabel: {
-    fontSize: 10,
-    color: '#6366F1',
-    fontWeight: '600',
-  },
-  messageText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  messageTime: {
-    fontSize: 10,
-    marginTop: 4,
-  },
-  suggestionsContainer: {
-    marginTop: 12,
-  },
-  suggestionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  suggestionsTitle: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  suggestionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  suggestionButton: {
-    flex: 1,
-    minWidth: '45%',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  suggestionText: {
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  inputContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  inputBox: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'flex-end',
-  },
-  inputField: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 24,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 13,
-    paddingVertical: 4,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  header: { backgroundColor: '#7C3AED', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerContent: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  menuButton: { padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: 'white' },
+  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  newChatHeaderBtn: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 10, borderRadius: 12 },
+  
+  // Sidebar Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row' },
+  modalContent: { backgroundColor: 'white', width: '75%', height: '100%', borderTopRightRadius: 24, borderBottomRightRadius: 24, padding: 20, paddingTop: 60, elevation: 5, shadowColor: '#000', shadowOffset: { width: 2, height: 0 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  modalCloseArea: { flex: 1 }, // Invisible area to tap and close
+  modalHeader: { marginBottom: 24 },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#1F2937' },
+  newChatButton: { backgroundColor: '#7C3AED', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12, gap: 8, marginBottom: 20 },
+  newChatText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  sessionList: { flex: 1 },
+  sessionItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 12 },
+  activeSessionItem: { backgroundColor: '#F3F0FF', borderRadius: 12, borderBottomWidth: 0 },
+  sessionText: { fontSize: 15, color: '#4B5563', flex: 1 },
+  activeSessionText: { color: '#7C3AED', fontWeight: 'bold' },
+
+  messagesContainer: { flex: 1 },
+  messagesList: { paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 40 },
+  messageWrapper: { marginBottom: 12, flexDirection: 'row' },
+  userMessageWrapper: { justifyContent: 'flex-end' },
+  aiMessageWrapper: { justifyContent: 'flex-start' },
+  messageBubble: { maxWidth: '80%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, shadowColor: '#111', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  userMessage: { borderBottomRightRadius: 4 },
+  aiMessage: { borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#F3F4F6' },
+  aiMessageHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  aiLabel: { fontSize: 10, color: '#7C3AED', fontWeight: '600' },
+  messageText: { fontSize: 13, lineHeight: 18 },
+  messageTime: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
+  
+  // Centered Quick Actions Styles
+  quickActionsContainer: { marginTop: 40, alignItems: 'center' },
+  quickActionsTitle: { fontSize: 14, color: '#6B7280', marginBottom: 16, fontWeight: '500' },
+  quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16 },
+  quickActionButton: { alignItems: 'center', width: '42%', paddingVertical: 16, backgroundColor: 'white', borderRadius: 16, elevation: 2, shadowColor: '#111', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+  quickActionIcon: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  quickActionLabel: { fontSize: 13, fontWeight: '600', color: '#1F2937' },
+
+  inputContainer: { paddingHorizontal: 16, paddingBottom: 30, paddingTop: 12, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+  inputBox: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
+  inputField: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 24, gap: 8, backgroundColor: '#F3F4F6' },
+  input: { flex: 1, fontSize: 13, paddingVertical: 4, color: '#1F2937' },
+  sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
 });

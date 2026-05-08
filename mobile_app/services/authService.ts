@@ -2,7 +2,7 @@ import { API_BASE_URL } from '../config/api';
 import * as SecureStore from 'expo-secure-store';
 
 export interface LoginCredentials {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -44,16 +44,18 @@ export async function register(credentials: RegisterCredentials): Promise<AuthRe
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Registration failed');
+      // Django usually returns objects for registration errors (e.g., {"username": ["already exists"]})
+      const errorMessage = error.detail || error.message || (typeof error === 'object' ? Object.values(error).flat()[0] : 'Registration failed');
+      throw new Error(errorMessage as string);
     }
 
-    const data: AuthResponse = await response.json();
+    // 🌟 FIX: Registration was successful, but it doesn't return a token.
+    // So we automatically log the user in right now to get their tokens!
+    return await login({
+      username: credentials.username,
+      password: credentials.password,
+    });
     
-    // Store tokens securely
-    await SecureStore.setItemAsync(TOKEN_KEY, data.access);
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refresh);
-    
-    return data;
   } catch (error) {
     console.error('Registration error:', error);
     throw error;
@@ -61,7 +63,7 @@ export async function register(credentials: RegisterCredentials): Promise<AuthRe
 }
 
 /**
- * Login user with email and password
+ * Login user with username and password
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   try {
@@ -75,7 +77,8 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+      // 🌟 FIX: Django SimpleJWT uses "detail", not "message" for login errors
+      throw new Error(error.detail || error.message || 'Login failed');
     }
 
     const data: AuthResponse = await response.json();

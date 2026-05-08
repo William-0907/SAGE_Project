@@ -1,13 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-
 class User(AbstractUser):
+
     # --- Roles ---
     is_student = models.BooleanField(default=False)
     is_educator = models.BooleanField(default=False)
@@ -46,7 +41,9 @@ class User(AbstractUser):
 # --- Your Related Models (These look great!) ---
 
 class Badge(models.Model):
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='badges')
+
     icon = models.CharField(max_length=10)
     name = models.CharField(max_length=100)
     earned_at = models.DateTimeField(auto_now_add=True)

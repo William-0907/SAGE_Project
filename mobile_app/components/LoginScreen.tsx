@@ -36,8 +36,7 @@ export default function LoginScreen() {
 
     try {
       clearError();
-      await login({ email: username, password }); // API uses email field
-      // Navigation happens automatically after login success
+      await login({ username: username, password: password }); 
       router.replace('/');
     } catch (err) {
       Alert.alert('Login Failed', error || 'Please check your credentials');

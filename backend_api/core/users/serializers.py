@@ -1,14 +1,17 @@
 from rest_framework import serializers
-from .models import User, Badge, Recommendation, Session, Activity
+from .models import Badge, Recommendation, Session, Activity
 # --- Your Related Serializers (Unchanged, these are great!) ---
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class BadgeSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Badge
-        fields = ['id', 'name', 'description', 'icon_url', 'created_at']
+        fields = ['id', 'icon', 'name', 'earned_at']
+
 
 class UserProfileSerializer(serializers.ModelSerializer):
     next_level_xp = serializers.SerializerMethodField()
