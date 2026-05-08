@@ -204,7 +204,8 @@ class GenerateQuizView(APIView):
             # 🌟 SAVE TO DATABASE
             quiz = Quiz.objects.create(
                 user=request.user,
-                title=quiz_json.get('title', 'Generated Quiz')
+                title=quiz_json.get('title', 'Generated Quiz'),
+                quiz_type=q_type
             )
             for q in quiz_json.get('questions', []):
                 QuizQuestion.objects.create(

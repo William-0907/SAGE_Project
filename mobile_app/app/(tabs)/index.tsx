@@ -7,6 +7,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { API_BASE_URL } from '@/config/api';
+import { getToken } from '@/services/authService';
 
 
 export default function HomeScreen() {
@@ -54,41 +56,59 @@ export default function HomeScreen() {
     setIsGenerating(true);
     
     try {
-      // 1. Analyze and Extract Text (Pre-AI Step)
+      // 1. Extract Text
       setGenerationStatus("Analyzing study material...");
-      setGenerationProgress(0.2);
+      setGenerationProgress(0.1);
       
       let extractedText = "";
       if (selectedFile.mimeType === 'text/plain') {
         extractedText = await FileSystem.readAsStringAsync(selectedFile.uri);
       } else {
-        // For PDFs/Docs, we'd typically send to a parsing endpoint, but we'll simulate the extraction time
+        // Placeholder: For PDFs, you'd usually use a specialized extraction service
         extractedText = `[Context from ${selectedFile.name}]`;
       }
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
 
-      // 2. Extract Key Concepts
-      setGenerationStatus("Extracting key concepts...");
-      setGenerationProgress(0.45);
-      await new Promise(resolve => setTimeout(resolve, 1800));
-
-      // 3. Generating Questions (This is where the actual AI fetch would go)
+      // 2. Real API Request
       setGenerationStatus("Generating questions...");
-      setGenerationProgress(0.75);
-      // Placeholder for your fetch(`${API_BASE_URL}/ai/generate-quiz/`, ...) logic
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      setGenerationProgress(0.4);
 
-      // 4. Finalizing
+      const token = await getToken();
+      const response = await fetch(`${API_BASE_URL}/ai/generate-quiz/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: extractedText,
+          difficulty: difficulty,
+          count: parseInt(questionCount),
+          type: questionType,
+          instructions: additionalInstruction
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to generate quiz");
+      }
+
+      const quizData = await response.json();
+
+      // 3. Success State
       setGenerationStatus("Finalizing quiz...");
       setGenerationProgress(1.0);
+      
+      // Give the user a moment to see the 100% completion
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       Alert.alert("Quiz Ready!", `Successfully generated ${questionCount} ${difficulty} ${questionType} questions.`);
       setIsModalVisible(false);
+      // TODO: Navigate to Quiz Player screen with quizData
       
     } catch (err) {
-      console.error("Generation Error:", err);
-      Alert.alert("Error", "Something went wrong while generating your quiz. Please try again.");
+      console.error("Generation Error Details:", err);
+      Alert.alert("Generation Failed", err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsGenerating(false);
       setGenerationStatus('');

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard'; // 🌟 NEW: Clipboard for the Copy Button
 import { API_BASE_URL } from '@/config/api';
 import { getToken, getCurrentUser } from '@/services/authService';
+import TakeQuiz from '../../components/TakeQuiz';
 
 // --- Interfaces ---
 interface StudyGroup {
@@ -40,13 +41,10 @@ interface Lesson {
 interface Quiz {
   id: number;
   title: string;
-  subject: string;
-  questions: number;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  timeLimit: string;
-  bestScore: number | null;
-  attempts: number;
-  participants: number;
+  created_at: string;
+  quiz_type?: string;
+  questions: any[];
+  difficulty?: string; // Optional since backend might not store it yet
 }
 
 export default function ActivitiesScreen() {
@@ -55,25 +53,28 @@ export default function ActivitiesScreen() {
   
   // Real API State
   const [groups, setGroups] = useState<StudyGroup[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Chat State
+  // Quiz Player State
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [quizToTake, setQuizToTake] = useState<Quiz | null>(null);
+
+  // --- Messenger & Chat State ---
   const [activeGroup, setActiveGroup] = useState<StudyGroup | null>(null);
   const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
-  const scrollViewRef = useRef<ScrollView>(null);
-  
-  // Plus Menu & Settings State
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(false); // For settings UI
+  const [isMuted, setIsMuted] = useState(false);
 
-  // Creation Modals
+  // --- Group Management Modals ---
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadInitialData();
@@ -84,12 +85,18 @@ export default function ActivitiesScreen() {
       setLoading(true);
       const user = await getCurrentUser();
       setCurrentUser(user);
-      
+
       const token = await getToken();
-      const res = await fetch(`${API_BASE_URL}/users/groups/mine/`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) setGroups(await res.json());
+
+      // Fetch Groups and Quizzes in parallel
+      const [groupRes, quizRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/users/groups/mine/`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/ai/quizzes/`, { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+
+      if (groupRes.ok) setGroups(await groupRes.json());
+      if (quizRes.ok) setQuizzes(await quizRes.json());
+
     } catch (error) {
       console.error(error);
     } finally {
@@ -191,11 +198,6 @@ export default function ActivitiesScreen() {
   const lessons: Lesson[] = [
     { id: 1, title: 'Introduction to Calculus', subject: 'Mathematics', duration: '45 min', progress: 100, status: 'completed', points: 250, color: '#3B82F6' },
     { id: 2, title: "Newton's Laws of Motion", subject: 'Physics', duration: '30 min', progress: 60, status: 'in-progress', points: 200, color: '#10B981' },
-  ];
-
-  const quizzes: Quiz[] = [
-    { id: 1, title: 'Calculus Integration Quiz', subject: 'Mathematics', questions: 20, difficulty: 'Hard', timeLimit: '30 min', bestScore: 85, attempts: 2, participants: 156 },
-    { id: 2, title: 'Physics Fundamentals', subject: 'Physics', questions: 15, difficulty: 'Medium', timeLimit: '20 min', bestScore: 92, attempts: 1, participants: 203 },
   ];
 
   // --- ACTIVE CHAT VIEW ---
@@ -415,18 +417,33 @@ export default function ActivitiesScreen() {
         {/* QUIZZES VIEW */}
         {selectedTab === 'quizzes' && (
           <View style={styles.itemsList}>
+            {quizzes.length === 0 && !loading && (
+              <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: 20 }}>No quizzes generated yet.</Text>
+            )}
             {quizzes.map((quiz) => (
               <View key={quiz.id} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
                     <View style={styles.badgesRow}>
-                      <View style={styles.badgePill}><Text style={styles.badgePillText}>{quiz.subject}</Text></View>
-                      <View style={[styles.badgePill, { borderColor: quiz.difficulty === 'Hard' ? '#EF4444' : quiz.difficulty === 'Medium' ? '#F59E0B' : '#10B981' }]}>
-                        <Text style={[styles.badgePillText, { color: quiz.difficulty === 'Hard' ? '#EF4444' : quiz.difficulty === 'Medium' ? '#F59E0B' : '#10B981' }]}>{quiz.difficulty}</Text>
+                      <View style={styles.badgePill}><Text style={styles.badgePillText}>{quiz.questions?.length || 0} Questions</Text></View>
+                      <View style={styles.badgePill}><Text style={styles.badgePillText}>{quiz.quiz_type}</Text></View>
+                      <View style={[styles.badgePill, { borderColor: '#7C3AED' }]}>
+                        <Text style={[styles.badgePillText, { color: '#7C3AED' }]}>AI Generated</Text>
                       </View>
                     </View>
                     <Text style={styles.cardTitle}>{quiz.title}</Text>
+                    <Text style={styles.metaText}>Created {new Date(quiz.created_at).toLocaleDateString()}</Text>
                   </View>
+                  <TouchableOpacity 
+                    style={styles.takeQuizBtn} 
+                    onPress={() => {
+                      setQuizToTake(quiz);
+                      setIsQuizModalOpen(true);
+                    }}
+                  >
+                    <Ionicons name="play-outline" size={16} color="white" />
+                    <Text style={styles.takeQuizBtnText}>Take</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -500,12 +517,33 @@ export default function ActivitiesScreen() {
         </View>
       </Modal>
 
+      {/* TAKE QUIZ MODAL */}
+      <Modal visible={isQuizModalOpen} animationType="slide">
+        <TakeQuiz 
+          quizTitle={quizToTake?.title || 'Quiz'}
+          questions={quizToTake?.questions.map((q: any) => ({
+            id: q.id,
+            question: q.question_text,
+            type: (quizToTake.quiz_type || 'Multiple Choice') as any,
+            options: q.options,
+            correct_answer: q.correct_answer
+          })) || []}
+          onFinish={(score) => {
+            setIsQuizModalOpen(false);
+            setQuizToTake(null);
+          }}
+          onClose={() => {
+            setIsQuizModalOpen(false);
+            setQuizToTake(null);
+          }}
+        />
+      </Modal>
+
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: '#F9FAFB' },
   
   // Standard header padding used with SafeAreaView
   header: { backgroundColor: '#6D28D9', paddingTop: 20, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
@@ -610,4 +648,7 @@ const styles = StyleSheet.create({
   settingsOptionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   settingsOptionIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   settingsOptionText: { flex: 1, fontSize: 15, fontWeight: '500', color: '#1F2937' },
+
+  takeQuizBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#7C3AED', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 4, alignSelf: 'center' },
+  takeQuizBtnText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
 });

@@ -33,6 +33,7 @@ class ChatMessage(models.Model):
 class Quiz(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quizzes')
     title = models.CharField(max_length=255)
+    quiz_type = models.CharField(max_length=50, default="Multiple Choice")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
