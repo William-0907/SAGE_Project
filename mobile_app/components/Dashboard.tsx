@@ -52,7 +52,7 @@ interface Activity {
   activity_type: string;
 }
 
-export default function Dashboard() {
+export default function Dashboard({ onGenerateQuiz }: { onGenerateQuiz?: () => void }) {
   const [user, setUser] = useState<User | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -171,7 +171,6 @@ export default function Dashboard() {
     return (
       <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#6D28D9" />
-        <Text style={{ marginTop: 10, color: '#666' }}>Loading dashboard...</Text>
       </View>
     );
   }
@@ -352,7 +351,7 @@ export default function Dashboard() {
               style={styles.fabMenuItem}
               onPress={() => {
                 toggleFab();
-                router.push('/ai-assistant');
+                onGenerateQuiz?.();
               }}
             >
               <Text style={styles.fabMenuText}>Generate Quiz</Text>
@@ -398,7 +397,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   
   // Header
-  header: { backgroundColor: '#6D28D9', paddingTop: 40, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 4 },
+  header: { backgroundColor: '#6D28D9', paddingTop: 25, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 4 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   welcome: { color: '#DDD6FE', fontSize: 14 },
   name: { color: 'white', fontSize: 24, fontWeight: '700', marginTop: 2 },

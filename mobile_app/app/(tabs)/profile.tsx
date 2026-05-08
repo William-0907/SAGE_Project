@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   
   // Header Styles
-  header: { backgroundColor: '#6D28D9', paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 4 },
+  header: { backgroundColor: '#6D28D9', paddingTop: 20, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 4 },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
   avatarContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: 24, fontWeight: 'bold', color: 'white' },

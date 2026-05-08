@@ -507,8 +507,8 @@ export default function ActivitiesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   
-  // 🌟 PADDING TOP REDUCED TO 40 
-  header: { backgroundColor: '#6D28D9', paddingTop: 12, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  // Standard header padding used with SafeAreaView
+  header: { backgroundColor: '#6D28D9', paddingTop: 20, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: 'white' },
   headerSubtitle: { fontSize: 12, color: '#DDD6FE', marginTop: 2 },
   
@@ -533,8 +533,7 @@ const styles = StyleSheet.create({
   inboxTime: { fontSize: 11, color: '#6B7280' },
   inboxPreview: { fontSize: 13, color: '#6B7280' },
 
-  // 🌟 PADDING TOP REDUCED TO 40
-  chatHeader: { backgroundColor: '#6D28D9', paddingTop: 12, paddingBottom: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 4 },
+  chatHeader: { backgroundColor: '#6D28D9', paddingTop: 16, paddingBottom: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 4 },
   chatHeaderTitleBox: { flex: 1, alignItems: 'center' },
   chatHeaderTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   chatHeaderSubtitle: { color: '#DDD6FE', fontSize: 11, marginTop: 2 },
