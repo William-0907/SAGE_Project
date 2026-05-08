@@ -17,6 +17,10 @@ urlpatterns = [
     path('<int:user_id>/activities/', views.user_activities, name='user_activities'),
     path('<int:user_id>/badges/', views.user_badges, name='user_badges'),
 
+    path('groups/create/', views.CreateGroupView.as_view(), name='create_group'),
+    path('groups/join/', views.JoinGroupView.as_view(), name='join_group'),
+    path('groups/mine/', views.MyGroupsView.as_view(), name='my_groups'),
+
 
     path('test-xp/', views.AddXpTestView.as_view(), name='add_xp_test'),
     

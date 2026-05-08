@@ -1,93 +1,5 @@
-# import requests
-# from django.conf import settings # <-- 1. Import Django's settings
-# from rest_framework import status
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from rest_framework.permissions import IsAuthenticated
-
-# class AskSAGEView(APIView):
-#     permission_classes = [IsAuthenticated] 
-
-#     def post(self, request):
-#         user_prompt = request.data.get('prompt')
-        
-#         if not user_prompt:
-#             return Response({"error": "Please provide a prompt."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # <-- 2. Pull the secure key from settings.py!
-#         DEEPSEEK_API_KEY = settings.DEEPSEEK_API_KEY 
-        
-#         if not DEEPSEEK_API_KEY:
-#              return Response({"error": "API Key is missing or not loading from .env"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#         headers = {
-#             "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-#             "Content-Type": "application/json"
-#         }
-
-#         # The payload structure required by DeepSeek
-#         payload = {
-#             "model": "deepseek-chat", 
-#             "messages": [
-#                 {
-#                     "role": "system", 
-#                     "content": "You are SAGE, a Smart Assistant for Group-Based Education. You help students learn by providing clear, concise, and engaging educational explanations."
-#                 },
-#                 {
-#                     "role": "user", 
-#                     "content": user_prompt
-#                 }
-#             ]
-#         }
-
-#         try:
-#             # Send the request to DeepSeek
-#             response = requests.post(
-#                 "https://api.deepseek.com/chat/completions", 
-#                 headers=headers, 
-#                 json=payload
-#             )
-#             response.raise_for_status() 
-            
-#             data = response.json()
-#             ai_text = data['choices'][0]['message']['content']
-            
-#             return Response({"sage_response": ai_text}, status=status.HTTP_200_OK)
-            
-#         except requests.exceptions.RequestException as e:
-#             return Response({"error": f"Failed to connect to AI: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-
-# from rest_framework import status
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from rest_framework.permissions import IsAuthenticated
-# import time
-
-# class AskSAGEView(APIView):
-#     permission_classes = [IsAuthenticated] 
-
-#     def post(self, request):
-#         user_prompt = request.data.get('prompt')
-        
-#         if not user_prompt:
-#             return Response({"error": "Please provide a prompt."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # --- MOCK AI RESPONSE (Remove this when API is funded) ---
-        
-#         # Simulate network delay so the frontend loading spinner works
-#         time.sleep(2) 
-        
-#         mock_response = (
-#             f"You asked SAGE about: '{user_prompt}'.\n\n"
-#             f"This is a placeholder response because the DeepSeek API is currently unfunded (Error 402). "
-#             f"However, your Django backend is perfectly connected and ready to go!"
-#         )
-        
-#         return Response({"sage_response": mock_response}, status=status.HTTP_200_OK)
-        
-#         # ---------------------------------------------------------
-
+import requests
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -137,9 +49,50 @@ class AskSAGEView(APIView):
         # 2. Save User Message
         ChatMessage.objects.create(user=request.user, session=session, text=user_message, is_ai=False)
 
-        # 3. AI Logic (Mock)
-        ai_reply = "I've saved this in our chat! How else can I help?"
+        # 3. 🌟 REAL AI LOGIC: Call Groq!
+        GROQ_API_KEY = getattr(settings, 'GROQ_API_KEY', None)
         
+        if not GROQ_API_KEY:
+            return Response({"error": "Groq API key not configured on server."}, status=500)
+
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        # Groq uses the exact same payload format as DeepSeek and OpenAI
+        payload = {
+            # 🌟 FIX: Updated from the deprecated llama3-8b-8192 to the active 3.1 model
+            "model": "llama-3.1-8b-instant", 
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "You are SAGE, a Smart Assistant for Group-Based Education. You help students learn by providing clear, concise, and engaging educational explanations."
+                },
+                {
+                    "role": "user", 
+                    "content": user_message
+                }
+            ]
+        }
+
+        try:
+            # Send the request to Groq
+            api_response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=10 # Groq is exceptionally fast
+            )
+            api_response.raise_for_status() 
+            
+            data = api_response.json()
+            ai_reply = data['choices'][0]['message']['content']
+            
+        except Exception as e:
+            print(f"Groq API Error: {e}")
+            ai_reply = "I'm sorry, my AI brain is temporarily offline. Please check the server logs!"
+
         # 4. Save AI Response
         ChatMessage.objects.create(user=request.user, session=session, text=ai_reply, is_ai=True)
 

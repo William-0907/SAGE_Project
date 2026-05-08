@@ -1,5 +1,12 @@
+import random
+import string
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
+
+# Automatically generate a 6-character random code like "A7X9PQ"
+def generate_join_code():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 class User(AbstractUser):
 
@@ -38,12 +45,11 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
-# --- Your Related Models (These look great!) ---
+
+# --- Your Related Models ---
 
 class Badge(models.Model):
-
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='badges')
-
     icon = models.CharField(max_length=10)
     name = models.CharField(max_length=100)
     earned_at = models.DateTimeField(auto_now_add=True)
@@ -79,3 +85,33 @@ class Activity(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.title}"
+
+
+# --- 🌟 NEW: GROUP & MULTIPLAYER MODELS ---
+
+class StudyGroup(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    join_code = models.CharField(max_length=10, unique=True, default=generate_join_code)
+    
+    # The teacher/student who made the group
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_groups')
+    
+    # The students inside the group
+    members = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='joined_groups')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.join_code})"
+
+class GroupMessage(models.Model):
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at'] # Oldest messages at the top
+
+    def __str__(self):
+        return f"{self.sender.username}: {self.text[:30]}"

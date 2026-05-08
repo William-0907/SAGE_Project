@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import User, Badge, Recommendation, Session, Activity
+from .models import User, Badge, Recommendation, Session, Activity, StudyGroup
 from rest_framework.permissions import IsAuthenticated
 from .serializers import UserProfileSerializer
 from .serializers import (
@@ -79,6 +79,76 @@ def user_badges(request, user_id):
     badges = Badge.objects.filter(user_id=user_id)
     serializer = BadgeSerializer(badges, many=True)
     return Response(serializer.data)
+
+class CreateGroupView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        name = request.data.get('name')
+        description = request.data.get('description', '')
+
+        if not name:
+            return Response({"error": "Group name is required"}, status=400)
+
+        # Create the group
+        group = StudyGroup.objects.create(
+            name=name,
+            description=description,
+            created_by=request.user
+        )
+        
+        # Add the creator to the members list automatically
+        group.members.add(request.user)
+
+        return Response({
+            "message": "Group created successfully!",
+            "group_id": group.id,
+            "join_code": group.join_code
+        })
+
+class JoinGroupView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        join_code = request.data.get('join_code')
+        
+        if not join_code:
+            return Response({"error": "Join code is required"}, status=400)
+
+        try:
+            # Find the group by its secret code
+            group = StudyGroup.objects.get(join_code=join_code.upper())
+            
+            # Add the user to the group
+            group.members.add(request.user)
+            
+            return Response({
+                "message": f"Successfully joined {group.name}!",
+                "group_id": group.id,
+                "name": group.name
+            })
+        except StudyGroup.DoesNotExist:
+            return Response({"error": "Invalid join code. Group not found."}, status=404)
+
+class MyGroupsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Fetch all groups this specific user is a member of
+        groups = request.user.joined_groups.all().order_by('-created_at')
+        
+        data = [
+            {
+                "id": group.id,
+                "name": group.name,
+                "description": group.description,
+                "members_count": group.members.count(),
+                "join_code": group.join_code,
+            } for group in groups
+        ]
+        return Response(data)
+
+
 
 class AddXpTestView(APIView):
     permission_classes = [IsAuthenticated]

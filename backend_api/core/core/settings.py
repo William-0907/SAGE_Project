@@ -28,6 +28,7 @@ load_dotenv(ENV_FILE_PATH)
 
 # Now, safely pull your DeepSeek key into Django's settings
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
 # (Optional but highly recommended: You can also secure your Django Secret Key while you're at it!)
 # SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-insecure-key-here')
