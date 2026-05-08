@@ -2,7 +2,7 @@ import { API_BASE_URL } from '../config/api';
 import * as SecureStore from 'expo-secure-store';
 
 export interface LoginCredentials {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -61,7 +61,7 @@ export async function register(credentials: RegisterCredentials): Promise<AuthRe
 }
 
 /**
- * Login user with email and password
+ * Login user with username and password
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   try {
@@ -73,12 +73,18 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       body: JSON.stringify(credentials),
     });
 
+    console.log('Login response status:', response.status);
+    console.log('Login response URL:', `${API_BASE_URL}/users/login/`);
+    console.log('Login credentials:', credentials);
+
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+      console.log('Login error response:', error);
+      throw new Error(error.message || `Login failed with status ${response.status}`);
     }
 
     const data: AuthResponse = await response.json();
+    console.log('Login successful, received tokens');
     
     // Store tokens securely
     await SecureStore.setItemAsync(TOKEN_KEY, data.access);

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Badge, Recommendation, Session, Activity
+from .models import User, Badge, Recommendation, Session, Activity, Quiz
 # --- Your Related Serializers (Unchanged, these are great!) ---
 from django.contrib.auth import get_user_model
 
@@ -46,6 +46,11 @@ class ActivitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Activity
         fields = ['id', 'title', 'description', 'activity_type', 'created_at']
+
+class QuizSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quiz
+        fields = ['id', 'title', 'questions', 'subject', 'created_at', 'user']
 
 # --- Updated User Serializers ---
 

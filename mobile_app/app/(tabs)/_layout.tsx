@@ -1,55 +1,45 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePathname } from 'expo-router';
+import BottomNavbar from '@/components/BottomNavbar';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const pathname = usePathname();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+      }}
+      tabBar={(props) => (
+        <BottomNavbar 
+          {...props} 
+          currentRoute={pathname} 
+        />
+      )}>
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
+        options={{ title: 'Home' }}
       />
       <Tabs.Screen
         name="activities"
-        options={{
-          title: 'Activities',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
-        }}
+        options={{ title: 'Activities' }}
       />
       <Tabs.Screen
         name="ai-assistant"
-        options={{
-          title: 'AI Assistant',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="sparkles" color={color} />,
-        }}
+        options={{ title: 'AI Assistant' }}
       />
       <Tabs.Screen
         name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
+        options={{ title: 'Profile' }}
       />
       <Tabs.Screen
         name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
+        options={{ title: 'Explore' }}
+      />
+      <Tabs.Screen
+        name="quizzes"
+        options={{ title: 'Quizzes' }}
       />
     </Tabs>
   );

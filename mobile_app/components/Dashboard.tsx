@@ -8,13 +8,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '../hooks/useAuth';
 
+// --- Interfaces (Unchanged) ---
 interface User {
   id: number;
-  name: string;
+  username: string;
   email: string;
-  streak_count: number;
-  total_achievements: number;
+  first_name: string;
+  last_name: string;
+  streak: number;
+  total_points: number;
 }
 
 interface Badge {
@@ -44,6 +48,7 @@ interface Activity {
 }
 
 export default function Dashboard() {
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -52,22 +57,29 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const USER_ID = 1; // Testing with user ID 1
-
   useEffect(() => {
     fetchUserData();
   }, []);
 
+  // --- Data Fetching (Unchanged) ---
   const fetchUserData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch user profile
-      const userResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/`);
-      console.log('User response status:', userResponse.status);
-      console.log('User response:', userResponse);
-      
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token found. Please login again.');
+      }
+
+      const userResponse = await fetch(`${API_BASE_URL}/users/me/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
       if (!userResponse.ok) {
         const errorText = await userResponse.text();
         throw new Error(`Failed to fetch user: ${userResponse.status} - ${errorText}`);
@@ -75,33 +87,25 @@ export default function Dashboard() {
       const userData = await userResponse.json();
       setUser(userData);
 
-      // Fetch badges
-      const badgesResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/badges/`);
-      if (badgesResponse.ok) {
-        const badgesData = await badgesResponse.json();
-        setBadges(badgesData);
-      }
+      const badgesResponse = await fetch(`${API_BASE_URL}/users/me/badges/`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (badgesResponse.ok) setBadges(await badgesResponse.json());
 
-      // Fetch recommendations
-      const recsResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/recommendations/`);
-      if (recsResponse.ok) {
-        const recsData = await recsResponse.json();
-        setRecommendations(recsData);
-      }
+      const recsResponse = await fetch(`${API_BASE_URL}/users/me/recommendations/`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (recsResponse.ok) setRecommendations(await recsResponse.json());
 
-      // Fetch sessions
-      const sessionsResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/sessions/`);
-      if (sessionsResponse.ok) {
-        const sessionsData = await sessionsResponse.json();
-        setSessions(sessionsData);
-      }
+      const sessionsResponse = await fetch(`${API_BASE_URL}/users/me/sessions/`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (sessionsResponse.ok) setSessions(await sessionsResponse.json());
 
-      // Fetch activities
-      const activitiesResponse = await fetch(`${API_BASE_URL}/users/${USER_ID}/activities/`);
-      if (activitiesResponse.ok) {
-        const activitiesData = await activitiesResponse.json();
-        setActivities(activitiesData);
-      }
+      const activitiesResponse = await fetch(`${API_BASE_URL}/users/me/activities/`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (activitiesResponse.ok) setActivities(await activitiesResponse.json());
 
       setLoading(false);
     } catch (err) {
@@ -113,10 +117,15 @@ export default function Dashboard() {
     }
   };
 
+  const getToken = async (): Promise<string | null> => {
+    const { getToken: authServiceGetToken } = require('../services/authService');
+    return await authServiceGetToken();
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#7C3AED" />
+        <ActivityIndicator size="large" color="#6366F1" />
         <Text style={{ marginTop: 10, color: '#666' }}>Loading dashboard...</Text>
       </View>
     );
@@ -136,6 +145,7 @@ export default function Dashboard() {
     );
   }
 
+  // --- Original Layout with New Color Scheme ---
   return (
     <ScrollView style={styles.container}>
       
@@ -143,7 +153,7 @@ export default function Dashboard() {
       <View style={styles.header}>
         <View>
           <Text style={styles.welcome}>Welcome Back,</Text>
-          <Text style={styles.name}>{user?.name || 'User'}</Text>
+          <Text style={styles.name}>{user?.username}</Text>
         </View>
 
         <View style={styles.iconCircle}>
@@ -154,19 +164,22 @@ export default function Dashboard() {
       {/* Quick Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Ionicons name="flame-outline" size={22} color="orange" />
+          {/* Changed icon color to match reference */}
+          <Ionicons name="flame-outline" size={22} color="#F97316" />
           <Text style={styles.statLabel}>Streak</Text>
-          <Text style={styles.statValue}>{user?.streak_count || 0}</Text>
+          <Text style={styles.statValue}>{user?.streak || 0}</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="trophy-outline" size={22} color="gold" />
-          <Text style={styles.statLabel}>Achievements</Text>
-          <Text style={styles.statValue}>{user?.total_achievements || 0}</Text>
+          {/* Changed icon color to match reference */}
+          <Ionicons name="trophy-outline" size={22} color="#FBBF24" />
+          <Text style={styles.statLabel}>Points</Text>
+          <Text style={styles.statValue}>{user?.total_points || 0}</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="trending-up-outline" size={22} color="green" />
+          {/* Changed icon color to match reference */}
+          <Ionicons name="trending-up-outline" size={22} color="#3B82F6" />
           <Text style={styles.statLabel}>Progress</Text>
           <Text style={styles.statValue}>88%</Text>
         </View>
@@ -175,7 +188,8 @@ export default function Dashboard() {
       {/* AI Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="sparkles-outline" size={18} color="#7C3AED" />
+          {/* Changed icon color */}
+          <Ionicons name="sparkles-outline" size={18} color="#6366F1" />
           <Text style={styles.sectionTitle}>AI Recommendations</Text>
         </View>
 
@@ -197,7 +211,7 @@ export default function Dashboard() {
       {/* Sessions */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="people-outline" size={18} color="#7C3AED" />
+          <Ionicons name="people-outline" size={18} color="#6366F1" />
           <Text style={styles.sectionTitle}>Group Sessions</Text>
         </View>
 
@@ -219,7 +233,7 @@ export default function Dashboard() {
       {/* Activities */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="history-outline" size={18} color="#7C3AED" />
+          <Ionicons name="list-outline" size={18} color="#6366F1" />
           <Text style={styles.sectionTitle}>Recent Activities</Text>
         </View>
 
@@ -243,7 +257,7 @@ export default function Dashboard() {
         <View>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="ribbon-outline" size={18} color="#7C3AED" />
+              <Ionicons name="ribbon-outline" size={18} color="#6366F1" />
               <Text style={styles.sectionTitle}>Badges</Text>
             </View>
           </View>
@@ -262,14 +276,15 @@ export default function Dashboard() {
   );
 }
 
+// --- Updated Stylesheet to match ProfileScreen Colors ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F9FAFB', // Gray-50 from reference
   },
 
   header: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#6366F1', // Indigo-500 from reference (was #7C3AED)
     padding: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -279,7 +294,7 @@ const styles = StyleSheet.create({
   },
 
   welcome: {
-    color: '#E9D5FF',
+    color: 'rgba(255,255,255,0.8)', // Softer white from reference
     fontSize: 14,
   },
 
@@ -291,7 +306,7 @@ const styles = StyleSheet.create({
   },
 
   iconCircle: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)', // Same as reference
     padding: 10,
     borderRadius: 50,
   },
@@ -307,7 +322,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 15,
     borderRadius: 12,
-    elevation: 3,
+    // Removed elevation, added border to match reference
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 5,
@@ -315,14 +332,14 @@ const styles = StyleSheet.create({
 
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#9CA3AF', // Gray-400 from reference
     marginTop: 5,
   },
 
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#7C3AED',
+    color: '#1F2937', // Gray-800 from reference (was #7C3AED)
     marginTop: 2,
   },
 
@@ -340,25 +357,28 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937', // Gray-800 from reference
   },
 
   card: {
     backgroundColor: 'white',
     borderRadius: 12,
     marginBottom: 12,
-    elevation: 2,
+    // Removed elevation, added border to match reference
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     padding: 12,
   },
 
   cardTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1F2937', // Gray-800 from reference
   },
 
   cardDescription: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#9CA3AF', // Gray-400 from reference
     marginTop: 4,
   },
 
@@ -373,7 +393,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 15,
     borderRadius: 12,
-    elevation: 2,
+    // Added border to match reference
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
   },
 
@@ -383,7 +405,7 @@ const styles = StyleSheet.create({
 
   badgeLabel: {
     fontSize: 10,
-    color: '#666',
+    color: '#9CA3AF', // Gray-400 from reference
     marginTop: 5,
   },
 });

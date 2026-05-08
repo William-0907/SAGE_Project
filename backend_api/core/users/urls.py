@@ -20,4 +20,9 @@ urlpatterns = [
 
     path('test-xp/', views.AddXpTestView.as_view(), name='add_xp_test'),
     
+    # --- Quiz Routes ---
+    path('quizzes/', views.quiz_list, name='quiz_list'),
+    path('quizzes/<int:quiz_id>/', views.quiz_detail, name='quiz_detail'),
+    path('quizzes/create/', views.quiz_create, name='quiz_create'),
+    
 ]

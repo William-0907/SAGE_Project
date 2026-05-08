@@ -3,9 +3,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import User, Badge, Recommendation, Session, Activity
+from .models import User, Badge, Recommendation, Session, Activity, Quiz
 from rest_framework.permissions import IsAuthenticated
-from .serializers import UserProfileSerializer
+from .serializers import UserProfileSerializer, QuizSerializer
 from .serializers import (
     UserSerializer, UserRegistrationSerializer, 
     BadgeSerializer, RecommendationSerializer, 
@@ -96,3 +96,42 @@ class AddXpTestView(APIView):
             "new_level": user.level,
             "leveled_up": user.level > old_level
         })
+
+# --- QUIZ API ENDPOINTS ---
+
+@api_view(['GET'])
+def quiz_list(request):
+    """Get all quizzes"""
+    quizzes = Quiz.objects.all()
+    serializer = QuizSerializer(quizzes, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def quiz_detail(request, quiz_id):
+    """Get a specific quiz"""
+    try:
+        quiz = Quiz.objects.get(id=quiz_id)
+        serializer = QuizSerializer(quiz)
+        return Response(serializer.data)
+    except Quiz.DoesNotExist:
+        return Response({'error': 'Quiz not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def quiz_create(request):
+    """Create a new quiz from file content (mock AI response for now)"""
+    try:
+        title = request.data.get('title', 'Generated Quiz')
+        questions = request.data.get('questions', [])
+        subject = request.data.get('subject', 'General')
+        
+        quiz = Quiz.objects.create(
+            title=title,
+            questions=questions,
+            subject=subject,
+            user=request.user
+        )
+        
+        serializer = QuizSerializer(quiz)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

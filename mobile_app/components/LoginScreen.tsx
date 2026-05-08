@@ -36,7 +36,7 @@ export default function LoginScreen() {
 
     try {
       clearError();
-      await login({ email: username, password }); // API uses email field
+      await login({ username, password }); // API uses username field
       // Navigation happens automatically after login success
       router.replace('/');
     } catch (err) {

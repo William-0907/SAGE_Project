@@ -1,8 +1,17 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
+import { Colors, colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  fetchUserProfile,
+  fetchUserBadges,
+  fetchUserActivities,
+  getDisplayName,
+  UserProfile,
+  UserBadge,
+  UserActivity,
+} from '@/services/userProfileService';
 
 interface ProfileStats {
   label: string;
@@ -11,70 +20,49 @@ interface ProfileStats {
   color: string;
 }
 
-interface Achievement {
-  id: number;
-  name: string;
-  icon: string;
-  description: string;
-  unlocked: boolean;
-}
-
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const [selectedSection, setSelectedSection] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
+  const [activities, setActivities] = useState<UserActivity[]>([]);
 
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[(colorScheme ?? 'light') as keyof typeof Colors];
+
+  // Fetch user profile data on mount
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      const profile = await fetchUserProfile();
+      setUserProfile(profile);
+      
+      // Fetch badges and activities in parallel
+      const [badgesData, activitiesData] = await Promise.all([
+        fetchUserBadges(profile.id),
+        fetchUserActivities(profile.id),
+      ]);
+      
+      setBadges(badgesData);
+      setActivities(activitiesData.slice(0, 3)); // Get last 3 activities
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+      console.error('Error loading user data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const profileStats: ProfileStats[] = [
-    { label: 'Streak', value: 12, icon: 'flame', color: '#F97316' },
-    { label: 'Total Points', value: 2450, icon: 'star', color: '#FBBF24' },
-    { label: 'Lessons', value: 24, icon: 'book', color: '#3B82F6' },
-    { label: 'Quizzes', value: 18, icon: 'help-circle', color: '#10B981' },
-  ];
-
-  const achievements: Achievement[] = [
-    {
-      id: 1,
-      name: 'Math Master',
-      icon: '📐',
-      description: 'Complete 10 math lessons',
-      unlocked: true,
-    },
-    {
-      id: 2,
-      name: 'Quiz Champion',
-      icon: '🏆',
-      description: 'Score 90% on 5 quizzes',
-      unlocked: true,
-    },
-    {
-      id: 3,
-      name: 'Streak Keeper',
-      icon: '🔥',
-      description: 'Maintain 10-day streak',
-      unlocked: false,
-    },
-    {
-      id: 4,
-      name: 'Group Leader',
-      icon: '👥',
-      description: 'Lead 3 group studies',
-      unlocked: false,
-    },
-    {
-      id: 5,
-      name: 'Speed Runner',
-      icon: '⚡',
-      description: 'Complete lesson in 15 min',
-      unlocked: true,
-    },
-    {
-      id: 6,
-      name: 'Perfect Score',
-      icon: '💯',
-      description: 'Get 100% on a quiz',
-      unlocked: false,
-    },
+    { label: 'Streak', value: userProfile?.streak || 0, icon: 'flame', color: '#F97316' },
+    { label: 'Total Points', value: userProfile?.total_points || 0, icon: 'star', color: '#FBBF24' },
+    { label: 'Lessons', value: userProfile?.courses_completed || 0, icon: 'book', color: '#3B82F6' },
+    { label: 'Quizzes', value: userProfile?.quizzes_taken || 0, icon: 'help-circle', color: '#10B981' },
   ];
 
   const menuItems = [
@@ -88,11 +76,13 @@ export default function ProfileScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: '#6366F1' }]}>
         <View style={styles.profileImageBox}>
-          <Text style={styles.profileInitials}>JD</Text>
+          <Text style={styles.profileInitials}>
+            {getDisplayName(userProfile || { username: 'U', first_name: '', last_name: '' }).substring(0, 2).toUpperCase()}
+          </Text>
         </View>
         <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>John Doe</Text>
-          <Text style={styles.profileEmail}>john.doe@example.com</Text>
+          <Text style={styles.profileName}>{getDisplayName(userProfile || { username: 'User', first_name: '', last_name: '' })}</Text>
+          <Text style={styles.profileEmail}>{userProfile?.email || 'user@example.com'}</Text>
         </View>
         <TouchableOpacity style={styles.editButton}>
           <Ionicons name="pencil" size={18} color="white" />
@@ -334,7 +324,7 @@ export default function ProfileScreen() {
                 ]}
               >
                 <View style={styles.settingContent}>
-                  <Ionicons name="dark-mode" size={20} color="#6366F1" />
+                  <Ionicons name="moon" size={20} color="#6366F1" />
                   <View style={styles.settingText}>
                     <Text style={[styles.settingLabel, { color: colors.text }]}>
                       Theme

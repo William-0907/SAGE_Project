@@ -74,7 +74,8 @@ export default function AIAssistantScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: '#9333EA' }]}>
+      {/* Changed Background Color to #6366F1 to match Profile Screen */}
+      <View style={[styles.header, { backgroundColor: '#6366F1' }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerIconBox}>
             <Ionicons name="sparkles" size={24} color="white" />
@@ -121,7 +122,7 @@ export default function AIAssistantScreen() {
                 style={[
                   styles.messageBubble,
                   message.type === 'user'
-                    ? [styles.userMessage, { backgroundColor: '#6366F1' }]
+                    ? [styles.userMessage, { backgroundColor: '#6366F1' }] // Match primary color
                     : [styles.aiMessage, { backgroundColor: colors.surface }],
                 ]}
               >
@@ -146,7 +147,7 @@ export default function AIAssistantScreen() {
                     styles.messageTime,
                     message.type === 'user'
                       ? { color: 'rgba(255,255,255,0.7)' }
-                      : { color: '#999' },
+                      : { color: '#9CA3AF' }, // Gray-400 from reference
                   ]}
                 >
                   {message.time}
@@ -159,7 +160,7 @@ export default function AIAssistantScreen() {
           {messages.length === 1 && (
             <View style={styles.suggestionsContainer}>
               <View style={styles.suggestionsHeader}>
-                <Ionicons name="lightbulb" size={16} color="#666" />
+                <Ionicons name="lightbulb" size={16} color="#9CA3AF" />
                 <Text style={styles.suggestionsTitle}>Try asking:</Text>
               </View>
               <View style={styles.suggestionsGrid}>
@@ -190,13 +191,13 @@ export default function AIAssistantScreen() {
             <TextInput
               style={[styles.input, { color: colors.text }]}
               placeholder="Ask me anything..."
-              placeholderTextColor="#999"
+              placeholderTextColor="#9CA3AF"
               value={inputValue}
               onChangeText={setInputValue}
               onSubmitEditing={handleSend}
             />
             <TouchableOpacity>
-              <Ionicons name="mic" size={20} color="#999" />
+              <Ionicons name="mic" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -294,14 +295,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
+    borderWidth: 1, // Added to ensure consistency
+    borderColor: 'transparent', // Default transparent, overwritten by styles
   },
   userMessage: {
     borderBottomRightRadius: 2,
+    borderColor: '#6366F1', // Match color
   },
   aiMessage: {
     borderBottomLeftRadius: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E5E7EB', // Gray-200 from reference
   },
   aiMessageHeader: {
     flexDirection: 'row',
@@ -333,7 +337,7 @@ const styles = StyleSheet.create({
   },
   suggestionsTitle: {
     fontSize: 12,
-    color: '#666',
+    color: '#9CA3AF', // Gray-400 from reference
     fontWeight: '500',
   },
   suggestionsGrid: {
