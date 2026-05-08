@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Dimensions, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -22,6 +22,8 @@ interface TakeQuizProps {
 const TakeQuiz: React.FC<TakeQuizProps> = ({ quizTitle, questions, onFinish, onClose }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<{ [key: number]: string | string[] }>({});
+  const [score, setScore] = useState<number | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   if (!questions || questions.length === 0) return null;
 
@@ -124,10 +126,24 @@ const TakeQuiz: React.FC<TakeQuizProps> = ({ quizTitle, questions, onFinish, onC
   };
 
   const handleSubmitQuiz = () => {
-    // In a real app, you'd calculate the score here based on correct_answer
-    // For this template, we'll just simulate a score.
-    Alert.alert("Quiz Submitted!", "Your answers have been recorded. (Score calculation not implemented yet)");
-    onFinish(0); // Pass a dummy score for now
+    let correctCount = 0;
+
+    questions.forEach((q) => {
+      const userAnswer = userAnswers[q.id];
+      const correctAnswer = q.correct_answer;
+
+      if (!userAnswer || !correctAnswer) return;
+
+      if (typeof userAnswer === 'string' && typeof correctAnswer === 'string') {
+        // Case-insensitive trim comparison for text/short answer/multiple choice
+        if (userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) {
+          correctCount++;
+        }
+      }
+    });
+
+    setScore(correctCount);
+    setShowResults(true);
   };
 
   return (
@@ -185,6 +201,36 @@ const TakeQuiz: React.FC<TakeQuizProps> = ({ quizTitle, questions, onFinish, onC
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Results Modal */}
+      <Modal visible={showResults} transparent animationType="fade">
+        <View style={styles.resultsOverlay}>
+          <LinearGradient colors={['#FFFFFF', '#F1F5F9']} style={styles.resultsCard}>
+            <View style={styles.resultsHeader}>
+              <View style={[styles.scoreCircle, { borderColor: score !== null && score / questions.length >= 0.7 ? '#10B981' : '#F59E0B' }]}>
+                <Text style={styles.scoreText}>{score}</Text>
+                <Text style={styles.scoreTotal}>/ {questions.length}</Text>
+              </View>
+              <Text style={styles.resultsTitle}>
+                {score !== null && score / questions.length >= 0.7 ? 'Great Job!' : 'Keep Practicing!'}
+              </Text>
+              <Text style={styles.resultsSubtitle}>
+                You've completed the "{quizTitle}" quiz.
+              </Text>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.finishButton} 
+              onPress={() => {
+                setShowResults(false);
+                onFinish(score || 0);
+              }}
+            >
+              <Text style={styles.finishButtonText}>Finish</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -296,7 +342,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     paddingBottom: 34,
-    color: 'white',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -314,6 +359,44 @@ const styles = StyleSheet.create({
   navButtonText: { fontSize: 15, fontWeight: '700', color: '#4B5563' },
   submitButton: { backgroundColor: '#10B981', flex: 1, marginLeft: 12 },
   submitButtonText: { color: 'white' },
+  resultsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  resultsCard: {
+    width: '100%',
+    borderRadius: 32,
+    padding: 32,
+    alignItems: 'center',
+    elevation: 10,
+  },
+  resultsHeader: { alignItems: 'center', marginBottom: 32 },
+  scoreCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    flexDirection: 'row',
+  },
+  scoreText: { fontSize: 38, fontWeight: 'bold', color: '#1F2937' },
+  scoreTotal: { fontSize: 18, color: '#6B7280', marginLeft: 4, marginTop: 10 },
+  resultsTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937', marginBottom: 8 },
+  resultsSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  finishButton: {
+    backgroundColor: '#6D28D9',
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  finishButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default TakeQuiz;
