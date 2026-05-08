@@ -134,9 +134,7 @@ class MyGroupsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Fetch all groups this specific user is a member of
         groups = request.user.joined_groups.all().order_by('-created_at')
-        
         data = [
             {
                 "id": group.id,
@@ -144,10 +142,50 @@ class MyGroupsView(APIView):
                 "description": group.description,
                 "members_count": group.members.count(),
                 "join_code": group.join_code,
+                "created_by": group.created_by.id, # 🌟 NEW: Tells the app who the Admin is!
             } for group in groups
         ]
         return Response(data)
 
+from .models import GroupMessage # Make sure this is imported at the top!
+
+class GroupChatView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, group_id):
+        try:
+            group = StudyGroup.objects.get(id=group_id, members=request.user)
+            messages = group.messages.all().order_by('created_at')
+            data = [{
+                "id": m.id,
+                "text": m.text,
+                "sender_id": m.sender.id,
+                "sender_name": m.sender.first_name or m.sender.username,
+                "time": m.created_at.strftime("%I:%M %p")
+            } for m in messages]
+            return Response(data)
+        except StudyGroup.DoesNotExist:
+            return Response({"error": "Group not found or you are not a member"}, status=404)
+
+    def post(self, request, group_id):
+        try:
+            group = StudyGroup.objects.get(id=group_id, members=request.user)
+            text = request.data.get('text')
+            
+            if not text:
+                return Response({"error": "Message text is required"}, status=400)
+                
+            msg = GroupMessage.objects.create(group=group, sender=request.user, text=text)
+            
+            return Response({
+                "id": msg.id,
+                "text": msg.text,
+                "sender_id": msg.sender.id,
+                "sender_name": msg.sender.first_name or msg.sender.username,
+                "time": msg.created_at.strftime("%I:%M %p")
+            })
+        except StudyGroup.DoesNotExist:
+            return Response({"error": "Group not found"}, status=404)
 
 
 class AddXpTestView(APIView):
