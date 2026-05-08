@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SAGE SECRETS CONFIGURATION ---
-# Go up two more folders to reach SAGE_Project, then look for .env
+# Go up three folders to reach SAGE_Project, then look for .env
 ENV_FILE_PATH = BASE_DIR.parent.parent / '.env'
 
 # Load the variables into the environment
@@ -28,6 +28,9 @@ load_dotenv(ENV_FILE_PATH)
 
 # Now, safely pull your DeepSeek key into Django's settings
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+
+# Pull your Groq API key for AI quiz generation
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
 
 # (Optional but highly recommended: You can also secure your Django Secret Key while you're at it!)
 # SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-insecure-key-here')

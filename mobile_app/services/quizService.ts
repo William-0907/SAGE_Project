@@ -145,3 +145,40 @@ export function calculateScore(
     percentage,
   };
 }
+
+/**
+ * Generate a quiz from uploaded file using Groq AI
+ */
+export async function generateQuiz(fileUri: string, fileName: string): Promise<Quiz> {
+  try {
+    const token = await SecureStore.getItemAsync('auth_token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    // Read file content
+    const fileResponse = await fetch(fileUri);
+    const fileBlob = await fileResponse.blob();
+    const formData = new FormData();
+    formData.append('file', fileBlob, fileName);
+
+    const response = await fetch(`${API_BASE_URL}/users/quizzes/generate/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate quiz');
+    }
+
+    const data = await response.json();
+    return data.quiz;
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    throw error;
+  }
+}

@@ -24,5 +24,9 @@ urlpatterns = [
     path('quizzes/', views.quiz_list, name='quiz_list'),
     path('quizzes/<int:quiz_id>/', views.quiz_detail, name='quiz_detail'),
     path('quizzes/create/', views.quiz_create, name='quiz_create'),
+    path('quizzes/generate/', views.quiz_generate, name='quiz_generate'),
+    
+    # --- AI Routes ---
+    path('ai/chat/', views.ai_chat, name='ai_chat'),
     
 ]
