@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { View, StyleSheet, Modal, Text, TouchableOpacity, TextInput, ScrollView, Platform, Alert, FlatList } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, StyleSheet, Modal, Text, TouchableOpacity, TextInput, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
 import LoginScreen from '../../components/LoginScreen';
 import Dashboard from '../../components/Dashboard';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
 
 export default function HomeScreen() {
@@ -16,6 +17,10 @@ export default function HomeScreen() {
   const [questionType, setQuestionType] = useState('Multiple Choice');
   const [isQuestionTypeDropdownVisible, setIsQuestionTypeDropdownVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [additionalInstruction, setAdditionalInstruction] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
+  const [generationProgress, setGenerationProgress] = useState(0);
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -40,15 +45,55 @@ export default function HomeScreen() {
     }
   };
 
-  const handleGenerateQuiz = () => {
+  const handleGenerateQuiz = async () => {
     if (!selectedFile) {
       Alert.alert("Material Required", "Please select a study material (PDF or Text) before generating a quiz.");
       return;
     }
     
-    // Logic for actual quiz generation will be implemented here
-    Alert.alert("Quiz Generator", `Success! Preparing to generate ${questionCount} ${difficulty} ${questionType} questions from "${selectedFile.name}".`);
-    setIsModalVisible(false);
+    setIsGenerating(true);
+    
+    try {
+      // 1. Analyze and Extract Text (Pre-AI Step)
+      setGenerationStatus("Analyzing study material...");
+      setGenerationProgress(0.2);
+      
+      let extractedText = "";
+      if (selectedFile.mimeType === 'text/plain') {
+        extractedText = await FileSystem.readAsStringAsync(selectedFile.uri);
+      } else {
+        // For PDFs/Docs, we'd typically send to a parsing endpoint, but we'll simulate the extraction time
+        extractedText = `[Context from ${selectedFile.name}]`;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+      // 2. Extract Key Concepts
+      setGenerationStatus("Extracting key concepts...");
+      setGenerationProgress(0.45);
+      await new Promise(resolve => setTimeout(resolve, 1800));
+
+      // 3. Generating Questions (This is where the actual AI fetch would go)
+      setGenerationStatus("Generating questions...");
+      setGenerationProgress(0.75);
+      // Placeholder for your fetch(`${API_BASE_URL}/ai/generate-quiz/`, ...) logic
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      // 4. Finalizing
+      setGenerationStatus("Finalizing quiz...");
+      setGenerationProgress(1.0);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      Alert.alert("Quiz Ready!", `Successfully generated ${questionCount} ${difficulty} ${questionType} questions.`);
+      setIsModalVisible(false);
+      
+    } catch (err) {
+      console.error("Generation Error:", err);
+      Alert.alert("Error", "Something went wrong while generating your quiz. Please try again.");
+    } finally {
+      setIsGenerating(false);
+      setGenerationStatus('');
+      setGenerationProgress(0);
+    }
   };
 
   const questionTypeOptions = ['Multiple Choice', 'True/False', 'Short Answer', 'Fill-in-the-Blank'];
@@ -76,6 +121,24 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
+            {isGenerating ? (
+              /* 🌟 NEW: Focused Loading Layout */
+              <View style={styles.loadingContainer}>
+                <View style={styles.loadingIconContainer}>
+                  <ActivityIndicator size="large" color="#7C3AED" />
+                  <Ionicons name="sparkles" size={24} color="#7C3AED" style={styles.sparkleIcon} />
+                </View>
+                
+                <Text style={styles.statusTitle}>{generationStatus}</Text>
+                <Text style={styles.statusSubtitle}>SAGE AI is crafting the perfect assessment for you.</Text>
+                
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${generationProgress * 100}%` }]} />
+                </View>
+                <Text style={styles.progressText}>{Math.round(generationProgress * 100)}% Complete</Text>
+              </View>
+            ) : (
+              /* Original Configuration Form */
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalForm}>
               {/* Material Preview */}
               <Text style={styles.label}>Selected Material</Text>
@@ -145,21 +208,30 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              {/* Focus Area */}
-              <Text style={styles.label}>Focus Area (Optional)</Text>
+              {/* Additional Instruction */}
+              <Text style={styles.label}>Additional Instruction (Optional)</Text>
               <TextInput 
                 style={[styles.input, styles.textArea]} 
-                placeholder="e.g. Focus on Newton's Second Law"
+                placeholder="e.g. Include more questions about Newton's Second Law"
                 placeholderTextColor="#9CA3AF"
                 multiline
                 numberOfLines={3}
+                value={additionalInstruction}
+                onChangeText={setAdditionalInstruction}
               />
 
-              <TouchableOpacity style={styles.generateButton} onPress={handleGenerateQuiz}>
-                <Ionicons name="sparkles" size={20} color="white" style={{ marginRight: 8 }} />
-                <Text style={styles.generateButtonText}>Generate Quiz</Text>
+              <TouchableOpacity 
+                style={[styles.generateButton, isGenerating && { opacity: 0.7 }]} 
+                onPress={handleGenerateQuiz}
+                disabled={isGenerating}
+              >
+                {isGenerating ? <ActivityIndicator color="white" /> : <>
+                  <Ionicons name="sparkles" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text style={styles.generateButtonText}>Generate Quiz</Text>
+                </>}
               </TouchableOpacity>
             </ScrollView>
+            )}
           </View>
         </View>
       </Modal>
@@ -296,4 +368,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2937',
   },
+  // Loading Screen Styles
+  loadingContainer: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' },
+  loadingIconContainer: { position: 'relative', marginBottom: 24, width: 80, height: 80, justifyContent: 'center', alignItems: 'center' },
+  sparkleIcon: { position: 'absolute', top: 0, right: 0 },
+  statusTitle: { fontSize: 20, fontWeight: '700', color: '#1F2937', marginBottom: 8, textAlign: 'center' },
+  statusSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 32, paddingHorizontal: 20 },
+  progressTrack: { 
+    width: '100%', 
+    height: 8, 
+    backgroundColor: '#E5E7EB', 
+    borderRadius: 4, 
+    overflow: 'hidden',
+    marginBottom: 12 
+  },
+  progressFill: { 
+    height: '100%', 
+    backgroundColor: '#7C3AED', 
+  },
+  progressText: { fontSize: 12, fontWeight: '600', color: '#7C3AED' },
 });
