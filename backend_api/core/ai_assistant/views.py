@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import ChatSession, ChatMessage, Quiz, QuizQuestion
+from .serializers import QuizSerializer # Import the new serializer
 
 class SessionListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -221,3 +222,12 @@ class GenerateQuizView(APIView):
         except Exception as e:
             print(f"Quiz Gen Error: {e}")
             return Response({"error": str(e)}, status=500)
+
+class QuizListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Retrieve all quizzes created by the authenticated user
+        quizzes = Quiz.objects.filter(user=request.user).order_by('-created_at')
+        serializer = QuizSerializer(quizzes, many=True)
+        return Response(serializer.data)

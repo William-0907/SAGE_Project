@@ -6,4 +6,5 @@ urlpatterns = [
     path('sessions/', views.SessionListView.as_view(), name='session_list'),
     path('sessions/<int:session_id>/history/', views.SessionHistoryView.as_view(), name='session_history'),
     path('generate-quiz/', views.GenerateQuizView.as_view(), name='generate_quiz'),
+    path('quizzes/', views.QuizListView.as_view(), name='quiz_list'),
 ]
