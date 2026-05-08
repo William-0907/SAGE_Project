@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getQuizzes, createQuiz, Quiz } from '@/services/quizService';
 import { getToken } from '@/services/authService';
+import EditQuizModal from '@/components/EditQuizModal';
 
 interface Message {
   id: number;
@@ -31,7 +32,7 @@ export default function AIAssistantScreen() {
     {
       id: 1,
       type: 'ai',
-      text: "Hi! I'm your SAGE AI assistant. I can help you with personalized study plans, answer questions, suggest resources, and track your progress. How can I help you today?",
+      text: "nice Hi! I'm your SAGE AI assistant. I can help you with personalized study plans, answer questions, suggest resources, and track your progress. How can I help you today?",
       time: '10:30 AM',
     },
   ]);
@@ -343,121 +344,7 @@ export default function AIAssistantScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      {/* Edit Quiz Modal */}
-      <Modal
-        visible={!!editingQuiz}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={handleCancelEdit}
-      >
-        <View style={[styles.modalOverlay, { backgroundColor: themeColors.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: '#6366F1' }]}>
-            <TouchableOpacity onPress={handleCancelEdit}>
-              <Ionicons name="close" size={24} color="white" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Edit Quiz</Text>
-            <TouchableOpacity onPress={handleSaveEditedQuiz}>
-              <Ionicons name="checkmark" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            {editingQuiz && (
-              <>
-                <View style={styles.editSection}>
-                  <Text style={[styles.editLabel, { color: themeColors.text }]}>Quiz Title</Text>
-                  <TextInput
-                    style={[styles.editInput, { color: themeColors.text, borderColor: '#E5E7EB' }]}
-                    placeholder="Quiz title"
-                    placeholderTextColor="#9CA3AF"
-                    value={editingQuiz.title}
-                    onChangeText={(text) =>
-                      setEditingQuiz({ ...editingQuiz, title: text })
-                    }
-                  />
-                </View>
-
-                <View style={styles.editSection}>
-                  <Text style={[styles.editLabel, { color: themeColors.text }]}>Subject</Text>
-                  <TextInput
-                    style={[styles.editInput, { color: themeColors.text, borderColor: '#E5E7EB' }]}
-                    placeholder="Subject"
-                    placeholderTextColor="#9CA3AF"
-                    value={editingQuiz.subject}
-                    onChangeText={(text) =>
-                      setEditingQuiz({ ...editingQuiz, subject: text })
-                    }
-                  />
-                </View>
-
-                <View style={styles.editSection}>
-                  <Text style={[styles.editLabel, { color: themeColors.text }]}>Questions</Text>
-                  {editingQuiz.questions?.map((question, qIndex) => (
-                    <View key={qIndex} style={[styles.questionEditCard, { backgroundColor: '#F3F4F6' }]}>
-                      <Text style={[styles.questionNumber, { color: '#6366F1' }]}>
-                        Question {qIndex + 1}
-                      </Text>
-
-                      <Text style={[styles.editLabel, { color: themeColors.text, marginTop: 8 }]}>
-                        Question Text
-                      </Text>
-                      <TextInput
-                        style={[styles.editInput, { color: themeColors.text, borderColor: '#E5E7EB' }]}
-                        placeholder="Question"
-                        placeholderTextColor="#9CA3AF"
-                        value={question.question}
-                        onChangeText={(text) =>
-                          handleUpdateQuestion(qIndex, 'question', text)
-                        }
-                        multiline
-                      />
-
-                      <Text style={[styles.editLabel, { color: themeColors.text, marginTop: 8 }]}>
-                        Options
-                      </Text>
-                      {question.options.map((option, oIndex) => (
-                        <View key={oIndex} style={styles.optionEditContainer}>
-                          <TextInput
-                            style={[styles.editInput, { color: themeColors.text, borderColor: '#E5E7EB', flex: 1 }]}
-                            placeholder={`Option ${String.fromCharCode(65 + oIndex)}`}
-                            placeholderTextColor="#9CA3AF"
-                            value={option}
-                            onChangeText={(text) => {
-                              const updatedOptions = [...question.options];
-                              updatedOptions[oIndex] = text;
-                              handleUpdateQuestion(qIndex, 'option', updatedOptions);
-                            }}
-                          />
-                          <TouchableOpacity
-                            style={[
-                              styles.correctAnswerButton,
-                              {
-                                backgroundColor:
-                                  question.correctAnswer === oIndex ? '#10B981' : '#E5E7EB',
-                              },
-                            ]}
-                            onPress={() =>
-                              handleUpdateQuestion(qIndex, 'correctAnswer', oIndex)
-                            }
-                          >
-                            <Ionicons
-                              name="checkmark-circle"
-                              size={20}
-                              color={
-                                question.correctAnswer === oIndex ? 'white' : '#9CA3AF'
-                              }
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
+      
 
       {/* Main Screen */}
       {/* Changed Background Color to #6366F1 to match Profile Screen */}
@@ -769,6 +656,7 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flex: 1,
+    paddingTop: 0,
   },
   messagesList: {
     paddingHorizontal: 16,
@@ -988,64 +876,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: 'white',
-  },
-  modalOverlay: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'white',
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  editSection: {
-    marginBottom: 20,
-  },
-  editLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  editInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  questionEditCard: {
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  questionNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  optionEditContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  correctAnswerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
