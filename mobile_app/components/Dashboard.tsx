@@ -10,14 +10,10 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/config/api';
 import { getCurrentUser, getToken } from '@/services/authService';
-
-// Enable Layout Animations for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface User {
   id: number;
@@ -64,6 +60,7 @@ export default function Dashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // FAB State & Animation Tracker
   const [isFabOpen, setIsFabOpen] = useState(false);
@@ -351,7 +348,13 @@ export default function Dashboard() {
         <View style={styles.fabMenu}>
           
           <Animated.View style={[styles.fabMenuItemWrapper, item1Anim]}>
-            <TouchableOpacity style={styles.fabMenuItem}>
+            <TouchableOpacity 
+              style={styles.fabMenuItem}
+              onPress={() => {
+                toggleFab();
+                router.push('/ai-assistant');
+              }}
+            >
               <Text style={styles.fabMenuText}>Generate Quiz</Text>
               <View style={styles.fabMenuIconBox}><Ionicons name="document-text" size={20} color="#6D28D9" /></View>
             </TouchableOpacity>

@@ -7,7 +7,7 @@ export const API_CONFIG = {
   LOCAL: 'http://192.168.1.14:8000/api',
   
   // ngrok tunnel URL (for testing multiple devices anywhere)
-  TUNNEL: 'https://slouchy-photo-delivery.ngrok-free.dev/api',
+  TUNNEL: 'https://eloquent-flagpole-resupply.ngrok-free.dev/api',
 };
 
 // Select which config to use

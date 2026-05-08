@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -8,27 +8,28 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { isAuthenticated } from '@/services/authService';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  initialRouteName: '(tabs)',
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const segments = useSegments();
+  const navigationState = useRootNavigationState();
 
   const [isReady, setIsReady] = useState(false);
 
-  // 🌟 FIX: This effect now runs every time the screen (segments) changes
   useEffect(() => {
     const verifyAuth = async () => {
+      // Wait for the navigation root to be ready before redirecting (Crucial for Android)
+      if (!navigationState?.key) return;
+
       const loggedIn = await isAuthenticated(); // Read fresh token status
-      const inAuthGroup = segments[0] === '(tabs)';
+      const inAuthGroup = segments[0] === '(tabs)' || segments.length === 0;
 
       if (!loggedIn && inAuthGroup) {
-        // No token? Send to login
         router.replace('/login');
       } else if (loggedIn && segments[0] === 'login') {
-        // Has token? Send to tabs
         router.replace('/(tabs)');
       }
       
@@ -36,7 +37,7 @@ export default function RootLayout() {
     };
 
     verifyAuth();
-  }, [segments]); // <--- Adding segments here is the magic trick
+  }, [segments, navigationState?.key]); 
 
   if (!isReady) return null; 
 

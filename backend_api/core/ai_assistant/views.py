@@ -31,6 +31,7 @@ class AskSAGEView(APIView):
 
     def post(self, request):
         user_message = request.data.get('message')
+        attachment_text = request.data.get('attachment_text', '')
         session_id = request.data.get('session_id')
         
         if not user_message:
@@ -60,6 +61,9 @@ class AskSAGEView(APIView):
             "Content-Type": "application/json"
         }
 
+        # Combine message with extracted context if available for the AI's perspective
+        ai_prompt = f"[File Content]:\n{attachment_text}\n\nUser Question: {user_message}" if attachment_text else user_message
+
         # Groq uses the exact same payload format as DeepSeek and OpenAI
         payload = {
             # 🌟 FIX: Updated from the deprecated llama3-8b-8192 to the active 3.1 model
@@ -71,7 +75,7 @@ class AskSAGEView(APIView):
                 },
                 {
                     "role": "user", 
-                    "content": user_message
+                    "content": ai_prompt
                 }
             ]
         }
