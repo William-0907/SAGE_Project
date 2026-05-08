@@ -36,6 +36,7 @@ export default function AIAssistantScreen() {
       time: '10:30 AM',
     },
   ]);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [uploadedFile, setUploadedFile] = useState<{ uri: string; name: string } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -498,9 +499,12 @@ export default function AIAssistantScreen() {
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: '#10B981' }]}
                   onPress={() => {
-                    const quiz = messages.slice().reverse().find((m) => m.quiz)?.quiz;
-                    if (quiz) handleSaveQuiz(quiz);
-                  }}
+                            const msg = messages.slice().reverse().find((m) => m.quiz);
+                            if (msg?.quiz) {
+                              setEditingQuiz(structuredClone(msg.quiz));
+                              setEditModalVisible(true);
+                            }
+                          }}
                 >
                   <Ionicons name="save" size={16} color="white" />
                   <Text style={styles.actionButtonText}>Save Quiz</Text>
@@ -590,7 +594,8 @@ export default function AIAssistantScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+      </View>
+
   );
 }
 
