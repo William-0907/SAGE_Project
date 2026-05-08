@@ -1,9 +1,10 @@
+import json
 import requests
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import ChatSession, ChatMessage
+from .models import ChatSession, ChatMessage, Quiz, QuizQuestion
 
 class SessionListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -66,8 +67,8 @@ class AskSAGEView(APIView):
 
         # Groq uses the exact same payload format as DeepSeek and OpenAI
         payload = {
-            # 🌟 FIX: Updated from the deprecated llama3-8b-8192 to the active 3.1 model
-            "model": "llama-3.1-8b-instant", 
+            # 🌟 Using Llama 3.3 70B for high-quality reasoning and educational support
+            "model": "llama-3.3-70b-versatile", 
             "messages": [
                 {
                     "role": "system", 
@@ -129,3 +130,94 @@ class SessionHistoryView(APIView):
         } for msg in messages]
         
         return Response(data)
+
+class GenerateQuizView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        content = request.data.get('content')
+        difficulty = request.data.get('difficulty', 'Medium')
+        count = request.data.get('count', 10)
+        q_type = request.data.get('type', 'Multiple Choice')
+        instructions = request.data.get('instructions', '')
+
+        if not content:
+            return Response({"error": "No content provided to generate quiz."}, status=400)
+
+        GROQ_API_KEY = getattr(settings, 'GROQ_API_KEY', None)
+        if not GROQ_API_KEY:
+            return Response({"error": "Groq API key not configured."}, status=500)
+
+        system_prompt = (
+            "You are an expert educator. Create a quiz based on the provided content. "
+            "You MUST return ONLY valid JSON. Do not include any introductory text or markdown code blocks. "
+            "The JSON structure must be: "
+            "{"
+            "  \"title\": \"Quiz Title\","
+            "  \"questions\": ["
+            "    {"
+            "      \"id\": 1,"
+            "      \"question\": \"The question text\","
+            "      \"options\": [\"Option A\", \"Option B\", \"Option C\", \"Option D\"],"
+            "      \"correct_answer\": \"The exact string of the correct option\","
+            "      \"explanation\": \"Brief explanation why\""
+            "    }"
+            "  ]"
+            "}"
+        )
+
+        user_prompt = (
+            f"Generate a {difficulty} level quiz with {count} {q_type} questions. "
+            f"Additional Instructions: {instructions}\n\n"
+            f"Content to base the quiz on:\n{content}"
+        )
+
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "response_format": {"type": "json_object"}, # 🌟 Force JSON output
+            "temperature": 0.7
+        }
+
+        try:
+            api_response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            api_response.raise_for_status()
+            data = api_response.json()
+            
+            # Parse the string content from the AI into a real JSON object
+            quiz_json = json.loads(data['choices'][0]['message']['content'])
+
+            # 🌟 SAVE TO DATABASE
+            quiz = Quiz.objects.create(
+                user=request.user,
+                title=quiz_json.get('title', 'Generated Quiz')
+            )
+            for q in quiz_json.get('questions', []):
+                QuizQuestion.objects.create(
+                    quiz=quiz,
+                    question_text=q.get('question'),
+                    options=q.get('options'),
+                    correct_answer=q.get('correct_answer'),
+                    explanation=q.get('explanation')
+                )
+
+            return Response(quiz_json)
+
+        except json.JSONDecodeError:
+            return Response({"error": "AI returned invalid JSON formatting."}, status=500)
+        except Exception as e:
+            print(f"Quiz Gen Error: {e}")
+            return Response({"error": str(e)}, status=500)
