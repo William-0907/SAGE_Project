@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Modal, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Modal, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from '@expo/vector-icons';
 import { getToken } from '@/services/authService';
 import { API_BASE_URL } from '@/config/api';
@@ -33,6 +35,8 @@ export default function AIAssistantScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+  const [attachedFile, setAttachedFile] = useState<any>(null);
 
   const quickActions = [
     { id: 1, label: 'Study Plan', icon: 'book', color: '#3B82F6' },
@@ -118,6 +122,24 @@ export default function AIAssistantScreen() {
     setIsLoading(true);
     setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
 
+    // 🌟 Capture the file locally and clear state immediately
+    const fileToProcess = attachedFile;
+    setAttachedFile(null);
+    setAttachedFileName(null);
+
+    let extractedText = "";
+    if (fileToProcess) {
+      try {
+        if (fileToProcess.mimeType === 'text/plain') {
+          extractedText = await FileSystem.readAsStringAsync(fileToProcess.uri);
+        } else {
+          extractedText = `[FILE ATTACHED]\nName: ${fileToProcess.name}\nType: ${fileToProcess.mimeType}\nSize: ${fileToProcess.size} bytes`;
+        }
+      } catch (err) {
+        console.error("Text extraction failed:", err);
+      }
+    }
+
     try {
       const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/ai/ask/`, {
@@ -126,7 +148,11 @@ export default function AIAssistantScreen() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ message: textToSend.trim(), session_id: activeSessionId })
+        body: JSON.stringify({ 
+          message: textToSend.trim(),
+          attachment_text: extractedText,
+          session_id: activeSessionId 
+        })
       });
 
       if (!response.ok) {
@@ -142,12 +168,34 @@ export default function AIAssistantScreen() {
         loadSessions(); 
       }
 
+      // --- Simulated Typing Animation ---
+      const aiMessageId = Date.now() + 1;
+      const fullReply = data.reply;
+
+      // 1. Add an empty AI message bubble first
       setMessages((prev) => [...prev, {
-        id: Date.now() + 1,
+        id: aiMessageId,
         type: 'ai',
-        text: data.reply,
+        text: '',
         time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       }]);
+
+      // 2. Animate the text filling in
+      let charIndex = 0;
+      const typingInterval = setInterval(() => {
+        setMessages((prev) => prev.map(m => 
+          m.id === aiMessageId ? { ...m, text: fullReply.substring(0, charIndex + 1) } : m
+        ));
+        charIndex++;
+        
+        if (charIndex >= fullReply.length) {
+          clearInterval(typingInterval);
+        }
+        
+        // Auto-scroll as the text grows to keep the latest lines visible
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+      }, 15); // 15ms per character creates a smooth typing feel
+
     } catch (error) {
       console.error("AI Chat Error:", error);
       setMessages((prev) => [...prev, {
@@ -158,8 +206,38 @@ export default function AIAssistantScreen() {
       }]);
     } finally {
       setIsLoading(false);
+      setAttachedFileName(null);
+      setAttachedFile(null); // Clear the attachment after sending
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     }
+  };
+
+  // 5. Handle File Upload and Text Extraction
+  const handleFileUpload = async () => {
+    try {
+      // Select the file from the device
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/plain', 'application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+      
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAttachedFile(file);
+      setAttachedFileName(file.name);
+    } catch (err) {
+      console.error("File processing error:", err);
+      Alert.alert("Error", "Could not process the selected file.");
+    }
+  };
+
+  const clearAttachment = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAttachedFile(null);
+    setAttachedFileName(null);
   };
 
   return (
@@ -275,7 +353,23 @@ export default function AIAssistantScreen() {
 
       {/* Input Area */}
       <View style={styles.inputContainer}>
+        {/* Attached File Preview - Now inside the input area container */}
+        {attachedFileName && (
+          <View style={styles.attachmentPreview}>
+            <View style={styles.attachmentBadge}>
+              <Ionicons name="document" size={16} color="#7C3AED" />
+              <Text style={styles.attachmentName} numberOfLines={1}>{attachedFileName}</Text>
+              <TouchableOpacity onPress={clearAttachment}>
+                <Ionicons name="close-circle" size={18} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <View style={styles.inputBox}>
+          <TouchableOpacity onPress={handleFileUpload} style={styles.attachButton}>
+            <Ionicons name="attach" size={26} color="#7C3AED" />
+          </TouchableOpacity>
           <View style={styles.inputField}>
             <TextInput style={styles.input} placeholder="Ask me anything..." placeholderTextColor="#999" value={inputValue} onChangeText={setInputValue} onSubmitEditing={() => handleSend()} editable={!isLoading} />
           </View>
@@ -290,7 +384,7 @@ export default function AIAssistantScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { backgroundColor: '#7C3AED', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  header: { backgroundColor: '#7C3AED', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, paddingBottom: 20, paddingHorizontal: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   headerContent: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   menuButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: 'white' },
@@ -335,6 +429,10 @@ const styles = StyleSheet.create({
   inputContainer: { paddingHorizontal: 16, paddingBottom: 30, paddingTop: 12, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
   inputBox: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   inputField: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 24, gap: 8, backgroundColor: '#F3F4F6' },
+  attachButton: { padding: 4, marginBottom: 4 },
   input: { flex: 1, fontSize: 13, paddingVertical: 4, color: '#1F2937' },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  attachmentPreview: { marginBottom: 10, paddingLeft: 4 },
+  attachmentBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F0FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, alignSelf: 'flex-start', gap: 8, maxWidth: '90%' },
+  attachmentName: { fontSize: 12, color: '#7C3AED', fontWeight: '500', flexShrink: 1 },
 });

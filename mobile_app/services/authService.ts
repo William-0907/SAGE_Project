@@ -111,7 +111,8 @@ export async function getCurrentUser() {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch user profile');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.message || 'Failed to fetch user profile');
     }
 
     return await response.json();

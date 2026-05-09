@@ -29,3 +29,19 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"{'AI' if self.is_ai else 'User'}: {self.text[:30]}"
+
+class Quiz(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quizzes')
+    title = models.CharField(max_length=255)
+    quiz_type = models.CharField(max_length=50, default="Multiple Choice")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+class QuizQuestion(models.Model):
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
+    question_text = models.TextField()
+    options = models.JSONField()  # Stores the list of choices
+    correct_answer = models.TextField()
+    explanation = models.TextField(blank=True, null=True)
