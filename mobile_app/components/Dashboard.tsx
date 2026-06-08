@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API_BASE_URL } from '@/config/api';
+import { Fonts } from '@/constants/theme';
 import { getCurrentUser, getToken } from '@/services/authService';
 
 interface User {
@@ -399,29 +400,29 @@ const styles = StyleSheet.create({
   // Header
   header: { backgroundColor: '#6D28D9', paddingTop: 25, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 4 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  welcome: { color: '#DDD6FE', fontSize: 14 },
-  name: { color: 'white', fontSize: 24, fontWeight: '700', marginTop: 2 },
+  welcome: { color: '#DDD6FE', fontSize: 13, fontFamily: Fonts.sans },
+  name: { color: 'white', fontSize: 22, fontWeight: '700', marginTop: 2, fontFamily: Fonts.sans },
   iconCircle: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 50 },
 
   // Glassmorphic Quick Stats
   glassStatsRow: { flexDirection: 'row', gap: 10 },
   glassStatCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   glassStatIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  glassStatValue: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  glassStatLabel: { color: '#DDD6FE', fontSize: 12 },
+  glassStatValue: { color: 'white', fontSize: 18, fontWeight: 'bold', fontFamily: Fonts.sans },
+  glassStatLabel: { color: '#DDD6FE', fontSize: 11, fontFamily: Fonts.sans },
 
   content: { padding: 20 },
   section: { marginBottom: 24 },
   
   // Section Headers
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  joinButtonText: { color: '#6D28D9', fontSize: 15, fontWeight: '600' }, 
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#111827', fontFamily: Fonts.sans },
+  joinButtonText: { color: '#6D28D9', fontSize: 14, fontWeight: '600', fontFamily: Fonts.sans }, 
 
   // Cards
   card: { backgroundColor: 'white', borderRadius: 16, marginBottom: 12, padding: 16, elevation: 2, shadowColor: '#111', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
-  cardDescription: { fontSize: 13, color: '#6B7280', marginTop: 4, lineHeight: 18 },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: '#1F2937', fontFamily: Fonts.sans },
+  cardDescription: { fontSize: 12, color: '#6B7280', marginTop: 4, lineHeight: 18, fontFamily: Fonts.sans },
   
   // Custom AI Card Styling
   aiCard: { borderLeftWidth: 4, paddingLeft: 12 },
@@ -431,21 +432,21 @@ const styles = StyleSheet.create({
   // Custom Session Card Styling
   sessionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   badgePill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  badgePillText: { fontSize: 11, color: '#4B5563', fontWeight: '500' },
+  badgePillText: { fontSize: 10, color: '#4B5563', fontWeight: '500', fontFamily: Fonts.sans },
   sessionFooter: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  sessionFooterText: { fontSize: 13, color: '#6D28D9', fontWeight: '500' },
+  sessionFooterText: { fontSize: 12, color: '#6D28D9', fontWeight: '500', fontFamily: Fonts.sans },
 
   // Badges
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badgeCard: { width: '22%', backgroundColor: '#FEFCE8', paddingVertical: 12, borderRadius: 12, alignItems: 'center', elevation: 1 },
-  badgeIcon: { fontSize: 26, marginBottom: 4 },
-  badgeLabel: { fontSize: 10, color: '#374151', fontWeight: '500', textAlign: 'center' },
+  badgeIcon: { fontSize: 22, marginBottom: 4 },
+  badgeLabel: { fontSize: 10, color: '#374151', fontWeight: '500', textAlign: 'center', fontFamily: Fonts.sans },
 
   // Floating Action Menu Styles
   fabMain: { position: 'absolute', bottom: 20, right: 20, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
   fabMenu: { position: 'absolute', bottom: 90, right: 20, alignItems: 'flex-end' },
   fabMenuItemWrapper: { marginBottom: 16 }, 
   fabMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  fabMenuText: { backgroundColor: 'white', color: '#1F2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, fontSize: 14, fontWeight: '600', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, overflow: 'hidden' },
+  fabMenuText: { backgroundColor: 'white', color: '#1F2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, fontSize: 13, fontWeight: '600', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, overflow: 'hidden', fontFamily: Fonts.sans },
   fabMenuIconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
 });
